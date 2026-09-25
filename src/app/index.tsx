@@ -1,4 +1,5 @@
-import { useState } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useEffect, useState } from "react";
 import {
   FlatList,
   Pressable,
@@ -10,9 +11,26 @@ import {
 
 type Moment = { id: string; text: string; createdAt: number };
 
+const STORAGE_KEY = "savor.moments";
+
 export default function Index() {
   const [draft, setDraft] = useState("");
   const [moments, setMoments] = useState<Moment[]>([]);
+  const [loaded, setLoaded] = useState(false);
+
+  // Read the notebook when the app opens
+  useEffect(() => {
+    AsyncStorage.getItem(STORAGE_KEY).then((json) => {
+      if (json) setMoments(JSON.parse(json));
+      setLoaded(true);
+    });
+  }, []);
+
+  // Write to the notebook whenever moments change
+  useEffect(() => {
+    if (!loaded) return;
+    AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(moments));
+  }, [moments, loaded]);
 
   const keep = () => {
     const text = draft.trim();
