@@ -1,20 +1,33 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import Ionicons from "@expo/vector-icons/Ionicons";
+import * as ImagePicker from "expo-image-picker";
 import { useEffect, useState } from "react";
 import {
+  ActionSheetIOS,
+  Alert,
   FlatList,
+  Image,
+  Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
   View,
 } from "react-native";
 
-type Moment = { id: string; text: string; createdAt: number };
+type Moment = {
+  id: string;
+  text: string;
+  photos?: string[];
+  createdAt: number;
+};
 
 const STORAGE_KEY = "savor.moments";
 
 export default function Index() {
   const [draft, setDraft] = useState("");
+  const [draftPhotos, setDraftPhotos] = useState<string[]>([]);
   const [moments, setMoments] = useState<Moment[]>([]);
   const [loaded, setLoaded] = useState(false);
 
@@ -32,12 +45,59 @@ export default function Index() {
     AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(moments));
   }, [moments, loaded]);
 
+  const addUris = (uris: string[]) =>
+    setDraftPhotos((prev) => [...prev, ...uris]);
+
+  const takePhoto = async () => {
+    const { granted } = await ImagePicker.requestCameraPermissionsAsync();
+    if (!granted) return;
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ["images"],
+      quality: 0.8,
+    });
+    if (!result.canceled) addUris(result.assets.map((a) => a.uri));
+  };
+
+  const choosePhotos = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ["images"],
+      allowsMultipleSelection: true,
+      quality: 0.8,
+    });
+    if (!result.canceled) addUris(result.assets.map((a) => a.uri));
+  };
+
+  const openPhotoOptions = () => {
+    if (Platform.OS === "ios") {
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          options: ["Cancel", "Take photo", "Choose from library"],
+          cancelButtonIndex: 0,
+        },
+        (i) => {
+          if (i === 1) takePhoto();
+          if (i === 2) choosePhotos();
+        },
+      );
+    } else {
+      Alert.alert("Add photos", undefined, [
+        { text: "Take photo", onPress: takePhoto },
+        { text: "Choose from library", onPress: choosePhotos },
+        { text: "Cancel", style: "cancel" },
+      ]);
+    }
+  };
+
   const keep = () => {
     const text = draft.trim();
-    if (!text) return;
+    if (!text && draftPhotos.length === 0) return;
     const now = Date.now();
-    setMoments([{ id: String(now), text, createdAt: now }, ...moments]);
+    setMoments([
+      { id: String(now), text, photos: draftPhotos, createdAt: now },
+      ...moments,
+    ]);
     setDraft("");
+    setDraftPhotos([]);
   };
 
   return (
@@ -54,9 +114,34 @@ export default function Index() {
           multiline
           style={styles.input}
         />
-        <Pressable onPress={keep} style={styles.button}>
-          <Text style={styles.buttonText}>Keep</Text>
-        </Pressable>
+
+        {draftPhotos.length > 0 && (
+          <ScrollView horizontal style={styles.thumbRow}>
+            {draftPhotos.map((uri) => (
+              <Pressable
+                key={uri}
+                onPress={() =>
+                  setDraftPhotos((p) => p.filter((u) => u !== uri))
+                }
+              >
+                <Image source={{ uri }} style={styles.thumb} />
+              </Pressable>
+            ))}
+          </ScrollView>
+        )}
+
+        <View style={styles.actions}>
+          <Pressable
+            onPress={openPhotoOptions}
+            style={styles.iconButton}
+            accessibilityLabel="Add photos"
+          >
+            <Ionicons name="camera-outline" size={22} color="#6B6158" />
+          </Pressable>
+          <Pressable onPress={keep} style={styles.button}>
+            <Text style={styles.buttonText}>Keep</Text>
+          </Pressable>
+        </View>
       </View>
 
       <FlatList
@@ -71,7 +156,14 @@ export default function Index() {
                 month: "short",
               })}
             </Text>
-            <Text style={styles.text}>{item.text}</Text>
+            {item.text ? <Text style={styles.text}>{item.text}</Text> : null}
+            {item.photos?.length ? (
+              <View style={styles.photoRow}>
+                {item.photos.map((uri) => (
+                  <Image key={uri} source={{ uri }} style={styles.photo} />
+                ))}
+              </View>
+            ) : null}
           </View>
         )}
       />
@@ -103,13 +195,29 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   input: { fontSize: 18, color: "#2B2622", minHeight: 60 },
+  thumbRow: { marginTop: 12 },
+  thumb: { width: 64, height: 64, borderRadius: 8, marginRight: 6 },
+  actions: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginTop: 12,
+  },
+  iconButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: "#E6DCCB",
+    backgroundColor: "#F6F1E8",
+    alignItems: "center",
+    justifyContent: "center",
+  },
   button: {
-    alignSelf: "flex-end",
     backgroundColor: "#A5532F",
     borderRadius: 22,
     paddingVertical: 12,
     paddingHorizontal: 22,
-    marginTop: 8,
   },
   buttonText: { color: "#FFFCF6", fontSize: 15, fontWeight: "500" },
   moment: {
@@ -119,4 +227,6 @@ const styles = StyleSheet.create({
   },
   date: { fontSize: 13, color: "#6B6158", marginBottom: 4 },
   text: { fontSize: 16, lineHeight: 24, color: "#2B2622" },
+  photoRow: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 8 },
+  photo: { width: 100, height: 100, borderRadius: 10 },
 });
