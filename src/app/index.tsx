@@ -1,3 +1,4 @@
+import { Directory, File, Paths } from "expo-file-system";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as ImagePicker from "expo-image-picker";
@@ -24,6 +25,22 @@ type Moment = {
 };
 
 const STORAGE_KEY = "savor.moments";
+const photosDir = new Directory(Paths.document, "photos");
+
+// Copy a temporary photo into the app's permanent folder, return its file name
+function savePhoto(tempUri: string): string {
+  if (!photosDir.exists) photosDir.create({ idempotent: true });
+  const source = new File(tempUri);
+  const name = `${Date.now()}-${source.name}`;
+  source.copySync(new File(photosDir, name));
+  return name;
+}
+
+// Turn a stored file name back into a full path for <Image>
+// (older moments still have full temporary paths, so keep those as they are)
+function photoUri(photo: string): string {
+  return photo.startsWith("file://") ? photo : new File(photosDir, photo).uri;
+}
 
 export default function Index() {
   const [draft, setDraft] = useState("");
@@ -91,13 +108,18 @@ export default function Index() {
   const keep = () => {
     const text = draft.trim();
     if (!text && draftPhotos.length === 0) return;
-    const now = Date.now();
-    setMoments([
-      { id: String(now), text, photos: draftPhotos, createdAt: now },
-      ...moments,
-    ]);
-    setDraft("");
-    setDraftPhotos([]);
+    try {
+      const photos = draftPhotos.map(savePhoto);
+      const now = Date.now();
+      setMoments([
+        { id: String(now), text, photos, createdAt: now },
+        ...moments,
+      ]);
+      setDraft("");
+      setDraftPhotos([]);
+    } catch (e) {
+      Alert.alert("Couldn't save the photos", String(e));
+    }
   };
 
   return (
@@ -160,7 +182,11 @@ export default function Index() {
             {item.photos?.length ? (
               <View style={styles.photoRow}>
                 {item.photos.map((uri) => (
-                  <Image key={uri} source={{ uri }} style={styles.photo} />
+                  <Image
+                    key={uri}
+                    source={{ uri: photoUri(uri) }}
+                    style={styles.photo}
+                  />
                 ))}
               </View>
             ) : null}
