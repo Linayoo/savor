@@ -1,8 +1,6 @@
-import { Directory, File, Paths } from "expo-file-system";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as ImagePicker from "expo-image-picker";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   ActionSheetIOS,
   Alert,
@@ -16,51 +14,12 @@ import {
   TextInput,
   View,
 } from "react-native";
-
-type Moment = {
-  id: string;
-  text: string;
-  photos?: string[];
-  createdAt: number;
-};
-
-const STORAGE_KEY = "savor.moments";
-const photosDir = new Directory(Paths.document, "photos");
-
-// Copy a temporary photo into the app's permanent folder, return its file name
-function savePhoto(tempUri: string): string {
-  if (!photosDir.exists) photosDir.create({ idempotent: true });
-  const source = new File(tempUri);
-  const name = `${Date.now()}-${source.name}`;
-  source.copySync(new File(photosDir, name));
-  return name;
-}
-
-// Turn a stored file name back into a full path for <Image>
-// (older moments still have full temporary paths, so keep those as they are)
-function photoUri(photo: string): string {
-  return photo.startsWith("file://") ? photo : new File(photosDir, photo).uri;
-}
+import { photoUri, useMoments } from "../moments";
 
 export default function Index() {
+  const { moments, addMoment } = useMoments();
   const [draft, setDraft] = useState("");
   const [draftPhotos, setDraftPhotos] = useState<string[]>([]);
-  const [moments, setMoments] = useState<Moment[]>([]);
-  const [loaded, setLoaded] = useState(false);
-
-  // Read the notebook when the app opens
-  useEffect(() => {
-    AsyncStorage.getItem(STORAGE_KEY).then((json) => {
-      if (json) setMoments(JSON.parse(json));
-      setLoaded(true);
-    });
-  }, []);
-
-  // Write to the notebook whenever moments change
-  useEffect(() => {
-    if (!loaded) return;
-    AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(moments));
-  }, [moments, loaded]);
 
   const addUris = (uris: string[]) =>
     setDraftPhotos((prev) => [...prev, ...uris]);
@@ -109,12 +68,7 @@ export default function Index() {
     const text = draft.trim();
     if (!text && draftPhotos.length === 0) return;
     try {
-      const photos = draftPhotos.map(savePhoto);
-      const now = Date.now();
-      setMoments([
-        { id: String(now), text, photos, createdAt: now },
-        ...moments,
-      ]);
+      addMoment(text, draftPhotos);
       setDraft("");
       setDraftPhotos([]);
     } catch (e) {
@@ -181,10 +135,10 @@ export default function Index() {
             {item.text ? <Text style={styles.text}>{item.text}</Text> : null}
             {item.photos?.length ? (
               <View style={styles.photoRow}>
-                {item.photos.map((uri) => (
+                {item.photos.map((p) => (
                   <Image
-                    key={uri}
-                    source={{ uri: photoUri(uri) }}
+                    key={p}
+                    source={{ uri: photoUri(p) }}
                     style={styles.photo}
                   />
                 ))}
