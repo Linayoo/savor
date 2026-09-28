@@ -1,12 +1,14 @@
+import { router } from "expo-router";
 import {
   FlatList,
   Image,
+  Pressable,
   StyleSheet,
   Text,
   useWindowDimensions,
   View,
 } from "react-native";
-import { photoUri, useMoments } from "../moments";
+import { photoUri, useMoments } from "../../moments";
 
 const GAP = 4;
 const PADDING = 16;
@@ -17,7 +19,12 @@ export default function Gallery() {
   const size = (width - PADDING * 2 - GAP * 2) / 3;
 
   const photos = moments.flatMap((m) =>
-    (m.photos ?? []).map((p) => ({ key: `${m.id}-${p}`, uri: photoUri(p) })),
+    (m.photos ?? []).map((p) => ({
+      key: `${m.id}-${p}`,
+      momentId: m.id,
+      photo: p,
+      uri: photoUri(p),
+    })),
   );
 
   return (
@@ -31,10 +38,19 @@ export default function Gallery() {
         columnWrapperStyle={{ gap: GAP }}
         contentContainerStyle={{ gap: GAP }}
         renderItem={({ item }) => (
-          <Image
-            source={{ uri: item.uri }}
-            style={{ width: size, height: size, borderRadius: 6 }}
-          />
+          <Pressable
+            onPress={() =>
+              router.push({
+                pathname: "/moment/[id]",
+                params: { id: item.momentId, photo: item.photo },
+              })
+            }
+          >
+            <Image
+              source={{ uri: item.uri }}
+              style={{ width: size, height: size, borderRadius: 6 }}
+            />
+          </Pressable>
         )}
         ListEmptyComponent={
           <Text style={styles.empty}>Photos you keep will gather here.</Text>

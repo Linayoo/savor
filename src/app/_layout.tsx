@@ -1,40 +1,16 @@
-import Ionicons from "@expo/vector-icons/Ionicons";
-import { Tabs } from "expo-router";
+import { Stack } from "expo-router";
 import { MomentsProvider } from "../moments";
 
 export default function RootLayout() {
   return (
     <MomentsProvider>
-      <Tabs
-        screenOptions={{
-          headerShown: false,
-          tabBarActiveTintColor: "#A5532F",
-          tabBarInactiveTintColor: "#6B6158",
-          tabBarStyle: {
-            backgroundColor: "#FFFCF6",
-            borderTopColor: "#E6DCCB",
-          },
-        }}
-      >
-        <Tabs.Screen
-          name="index"
-          options={{
-            title: "Moments",
-            tabBarIcon: ({ color, size }) => (
-              <Ionicons name="sparkles-outline" color={color} size={size} />
-            ),
-          }}
+      <Stack screenOptions={{ headerShown: false }}>
+        <Stack.Screen name="(tabs)" />
+        <Stack.Screen
+          name="moment/[id]"
+          options={{ presentation: "fullScreenModal", animation: "fade" }}
         />
-        <Tabs.Screen
-          name="gallery"
-          options={{
-            title: "Gallery",
-            tabBarIcon: ({ color, size }) => (
-              <Ionicons name="images-outline" color={color} size={size} />
-            ),
-          }}
-        />
-      </Tabs>
+      </Stack>
     </MomentsProvider>
   );
 }

@@ -1,3 +1,4 @@
+import { router } from "expo-router";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import * as ImagePicker from "expo-image-picker";
 import { useState } from "react";
@@ -14,7 +15,7 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { photoUri, useMoments } from "../moments";
+import { photoUri, useMoments } from "../../moments";
 
 export default function Index() {
   const { moments, addMoment } = useMoments();
@@ -136,11 +137,17 @@ export default function Index() {
             {item.photos?.length ? (
               <View style={styles.photoRow}>
                 {item.photos.map((p) => (
-                  <Image
+                  <Pressable
                     key={p}
-                    source={{ uri: photoUri(p) }}
-                    style={styles.photo}
-                  />
+                    onPress={() =>
+                      router.push({
+                        pathname: "/moment/[id]",
+                        params: { id: item.id, photo: p },
+                      })
+                    }
+                  >
+                    <Image source={{ uri: photoUri(p) }} style={styles.photo} />
+                  </Pressable>
                 ))}
               </View>
             ) : null}
