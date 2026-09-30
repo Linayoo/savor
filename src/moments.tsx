@@ -33,6 +33,7 @@ export function photoUri(photo: string): string {
 type MomentsContextValue = {
   moments: Moment[];
   addMoment: (text: string, tempPhotos: string[]) => void;
+  deleteMoment: (id: string) => void;
 };
 
 const MomentsContext = createContext<MomentsContextValue | null>(null);
@@ -62,8 +63,18 @@ export function MomentsProvider({ children }: { children: ReactNode }) {
     ]);
   };
 
+  const deleteMoment = (id: string) => {
+    const target = moments.find((m) => m.id === id);
+    target?.photos?.forEach((p) => {
+      if (p.startsWith("file://")) return; // old temporary photos, not ours to delete
+      const file = new File(photosDir, p);
+      if (file.exists) file.delete();
+    });
+    setMoments((prev) => prev.filter((m) => m.id !== id));
+  };
+
   return (
-    <MomentsContext.Provider value={{ moments, addMoment }}>
+    <MomentsContext.Provider value={{ moments, addMoment, deleteMoment }}>
       {children}
     </MomentsContext.Provider>
   );

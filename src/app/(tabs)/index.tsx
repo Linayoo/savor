@@ -15,10 +15,10 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { photoUri, useMoments } from "../../moments";
+import { photoUri, useMoments, type Moment } from "../../moments";
 
 export default function Index() {
-  const { moments, addMoment } = useMoments();
+  const { moments, addMoment, deleteMoment } = useMoments();
   const [draft, setDraft] = useState("");
   const [draftPhotos, setDraftPhotos] = useState<string[]>([]);
 
@@ -77,6 +77,31 @@ export default function Index() {
     }
   };
 
+  const confirmDelete = (moment: Moment) => {
+    if (Platform.OS === "ios") {
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          options: ["Cancel", "Delete moment"],
+          cancelButtonIndex: 0,
+          destructiveButtonIndex: 1,
+          message: "This can't be undone.",
+        },
+        (i) => {
+          if (i === 1) deleteMoment(moment.id);
+        },
+      );
+    } else {
+      Alert.alert("Delete moment?", "This can't be undone.", [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete",
+          style: "destructive",
+          onPress: () => deleteMoment(moment.id),
+        },
+      ]);
+    }
+  };
+
   return (
     <View style={styles.screen}>
       <Text style={styles.title}>Savor</Text>
@@ -125,7 +150,7 @@ export default function Index() {
         data={moments}
         keyExtractor={(m) => m.id}
         renderItem={({ item }) => (
-          <View style={styles.moment}>
+          <Pressable style={styles.moment} onLongPress={() => confirmDelete(item)}>
             <Text style={styles.date}>
               {new Date(item.createdAt).toLocaleDateString("en-GB", {
                 weekday: "short",
@@ -151,7 +176,7 @@ export default function Index() {
                 ))}
               </View>
             ) : null}
-          </View>
+          </Pressable>
         )}
       />
     </View>
