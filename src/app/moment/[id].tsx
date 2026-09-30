@@ -1,4 +1,5 @@
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { fonts } from "@/theme";
 import { router, useLocalSearchParams } from "expo-router";
 import { useState } from "react";
 import {
@@ -113,6 +114,11 @@ const styles = StyleSheet.create({
   dot: { width: 6, height: 6, borderRadius: 3, backgroundColor: "#6B6158" },
   dotActive: { backgroundColor: "#F3EBDD" },
   caption: { paddingHorizontal: 24, paddingTop: 16, gap: 6 },
-  date: { fontSize: 13, color: "#B5A999" },
-  text: { fontSize: 18, lineHeight: 26, color: "#F3EBDD" },
+  date: { fontFamily: fonts.body, fontSize: 13, color: "#B5A999" },
+  text: {
+    fontFamily: fonts.serif,
+    fontSize: 18,
+    lineHeight: 26,
+    color: "#F3EBDD",
+  },
 });

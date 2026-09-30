@@ -8,6 +8,7 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
+import { fonts } from "@/theme";
 import { photoUri, useMoments } from "../../moments";
 
 const GAP = 4;
@@ -68,22 +69,22 @@ const styles = StyleSheet.create({
     paddingHorizontal: PADDING,
   },
   title: {
+    fontFamily: fonts.title,
     fontSize: 32,
-    fontWeight: "600",
     color: "#2B2622",
     paddingHorizontal: 4,
   },
   tagline: {
+    fontFamily: fonts.serifItalic,
     fontSize: 16,
-    fontStyle: "italic",
     color: "#6B6158",
     marginTop: 4,
     marginBottom: 20,
     paddingHorizontal: 4,
   },
   empty: {
+    fontFamily: fonts.serifItalic,
     fontSize: 15,
-    fontStyle: "italic",
     color: "#6B6158",
     paddingHorizontal: 4,
   },

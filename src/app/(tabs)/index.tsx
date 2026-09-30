@@ -1,5 +1,6 @@
 import { router } from "expo-router";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { fonts } from "@/theme";
 import * as ImagePicker from "expo-image-picker";
 import { useState } from "react";
 import {
@@ -190,10 +191,10 @@ const styles = StyleSheet.create({
     paddingTop: 72,
     paddingHorizontal: 20,
   },
-  title: { fontSize: 32, fontWeight: "600", color: "#2B2622" },
+  title: { fontFamily: fonts.title, fontSize: 32, color: "#2B2622" },
   tagline: {
+    fontFamily: fonts.serifItalic,
     fontSize: 16,
-    fontStyle: "italic",
     color: "#6B6158",
     marginTop: 4,
     marginBottom: 20,
@@ -206,7 +207,12 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 16,
   },
-  input: { fontSize: 18, color: "#2B2622", minHeight: 60 },
+  input: {
+    fontFamily: fonts.serif,
+    fontSize: 18,
+    color: "#2B2622",
+    minHeight: 60,
+  },
   thumbRow: { marginTop: 12 },
   thumb: { width: 64, height: 64, borderRadius: 8, marginRight: 6 },
   actions: {
@@ -231,14 +237,24 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 22,
   },
-  buttonText: { color: "#FFFCF6", fontSize: 15, fontWeight: "500" },
+  buttonText: { fontFamily: fonts.bodyMedium, color: "#FFFCF6", fontSize: 15 },
   moment: {
     paddingVertical: 16,
     borderBottomColor: "#E6DCCB",
     borderBottomWidth: 1,
   },
-  date: { fontSize: 13, color: "#6B6158", marginBottom: 4 },
-  text: { fontSize: 16, lineHeight: 24, color: "#2B2622" },
+  date: {
+    fontFamily: fonts.body,
+    fontSize: 13,
+    color: "#6B6158",
+    marginBottom: 4,
+  },
+  text: {
+    fontFamily: fonts.serif,
+    fontSize: 16,
+    lineHeight: 24,
+    color: "#2B2622",
+  },
   photoRow: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 8 },
   photo: { width: 100, height: 100, borderRadius: 10 },
 });
