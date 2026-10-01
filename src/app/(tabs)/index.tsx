@@ -2,7 +2,7 @@ import { router } from "expo-router";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import { fonts } from "@/theme";
 import * as ImagePicker from "expo-image-picker";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import {
   ActionSheetIOS,
   Alert,
@@ -19,9 +19,11 @@ import {
 import { photoUri, useMoments, type Moment } from "../../moments";
 
 export default function Index() {
-  const { moments, addMoment, deleteMoment } = useMoments();
+  const { moments, addMoment, updateMoment, deleteMoment } = useMoments();
   const [draft, setDraft] = useState("");
   const [draftPhotos, setDraftPhotos] = useState<string[]>([]);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const inputRef = useRef<TextInput>(null);
 
   const addUris = (uris: string[]) =>
     setDraftPhotos((prev) => [...prev, ...uris]);
@@ -66,8 +68,29 @@ export default function Index() {
     }
   };
 
+  const startEdit = (moment: Moment) => {
+    setEditingId(moment.id);
+    setDraft(moment.text);
+    setDraftPhotos([]);
+    inputRef.current?.focus();
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setDraft("");
+  };
+
   const keep = () => {
     const text = draft.trim();
+
+    if (editingId) {
+      const moment = moments.find((m) => m.id === editingId);
+      if (!text && !moment?.photos?.length) return; // don't leave an empty moment
+      updateMoment(editingId, text);
+      cancelEdit();
+      return;
+    }
+
     if (!text && draftPhotos.length === 0) return;
     try {
       addMoment(text, draftPhotos);
@@ -79,26 +102,38 @@ export default function Index() {
   };
 
   const confirmDelete = (moment: Moment) => {
+    Alert.alert("Delete moment?", "This can't be undone.", [
+      { text: "Cancel", style: "cancel" },
+      {
+        text: "Delete",
+        style: "destructive",
+        onPress: () => deleteMoment(moment.id),
+      },
+    ]);
+  };
+
+  const openMomentMenu = (moment: Moment) => {
     if (Platform.OS === "ios") {
       ActionSheetIOS.showActionSheetWithOptions(
         {
-          options: ["Cancel", "Delete moment"],
+          options: ["Cancel", "Edit words", "Delete moment"],
           cancelButtonIndex: 0,
-          destructiveButtonIndex: 1,
-          message: "This can't be undone.",
+          destructiveButtonIndex: 2,
         },
         (i) => {
-          if (i === 1) deleteMoment(moment.id);
+          if (i === 1) startEdit(moment);
+          if (i === 2) confirmDelete(moment);
         },
       );
     } else {
-      Alert.alert("Delete moment?", "This can't be undone.", [
-        { text: "Cancel", style: "cancel" },
+      Alert.alert("Moment", undefined, [
+        { text: "Edit words", onPress: () => startEdit(moment) },
         {
-          text: "Delete",
+          text: "Delete moment",
           style: "destructive",
-          onPress: () => deleteMoment(moment.id),
+          onPress: () => confirmDelete(moment),
         },
+        { text: "Cancel", style: "cancel" },
       ]);
     }
   };
@@ -110,6 +145,7 @@ export default function Index() {
 
       <View style={styles.card}>
         <TextInput
+          ref={inputRef}
           value={draft}
           onChangeText={setDraft}
           placeholder="What moved you just now?"
@@ -134,15 +170,21 @@ export default function Index() {
         )}
 
         <View style={styles.actions}>
-          <Pressable
-            onPress={openPhotoOptions}
-            style={styles.iconButton}
-            accessibilityLabel="Add photos"
-          >
-            <Ionicons name="camera-outline" size={22} color="#6B6158" />
-          </Pressable>
+          {editingId ? (
+            <Pressable onPress={cancelEdit} style={styles.textButton}>
+              <Text style={styles.textButtonText}>Cancel</Text>
+            </Pressable>
+          ) : (
+            <Pressable
+              onPress={openPhotoOptions}
+              style={styles.iconButton}
+              accessibilityLabel="Add photos"
+            >
+              <Ionicons name="camera-outline" size={22} color="#6B6158" />
+            </Pressable>
+          )}
           <Pressable onPress={keep} style={styles.button}>
-            <Text style={styles.buttonText}>Keep</Text>
+            <Text style={styles.buttonText}>{editingId ? "Save" : "Keep"}</Text>
           </Pressable>
         </View>
       </View>
@@ -151,7 +193,10 @@ export default function Index() {
         data={moments}
         keyExtractor={(m) => m.id}
         renderItem={({ item }) => (
-          <Pressable style={styles.moment} onLongPress={() => confirmDelete(item)}>
+          <Pressable
+            style={styles.moment}
+            onLongPress={() => openMomentMenu(item)}
+          >
             <Text style={styles.date}>
               {new Date(item.createdAt).toLocaleDateString("en-GB", {
                 weekday: "short",
@@ -254,6 +299,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     lineHeight: 24,
     color: "#2B2622",
+  },
+  textButton: { height: 44, justifyContent: "center", paddingHorizontal: 4 },
+  textButtonText: {
+    fontFamily: fonts.bodyMedium,
+    fontSize: 15,
+    color: "#6B6158",
   },
   photoRow: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 8 },
   photo: { width: 100, height: 100, borderRadius: 10 },

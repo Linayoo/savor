@@ -33,6 +33,7 @@ export function photoUri(photo: string): string {
 type MomentsContextValue = {
   moments: Moment[];
   addMoment: (text: string, tempPhotos: string[]) => void;
+  updateMoment: (id: string, text: string) => void;
   deleteMoment: (id: string) => void;
 };
 
@@ -63,6 +64,10 @@ export function MomentsProvider({ children }: { children: ReactNode }) {
     ]);
   };
 
+  const updateMoment = (id: string, text: string) => {
+    setMoments((prev) => prev.map((m) => (m.id === id ? { ...m, text } : m)));
+  };
+
   const deleteMoment = (id: string) => {
     const target = moments.find((m) => m.id === id);
     target?.photos?.forEach((p) => {
@@ -74,7 +79,9 @@ export function MomentsProvider({ children }: { children: ReactNode }) {
   };
 
   return (
-    <MomentsContext.Provider value={{ moments, addMoment, deleteMoment }}>
+    <MomentsContext.Provider
+      value={{ moments, addMoment, updateMoment, deleteMoment }}
+    >
       {children}
     </MomentsContext.Provider>
   );
