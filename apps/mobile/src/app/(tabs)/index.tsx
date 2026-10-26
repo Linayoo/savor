@@ -18,7 +18,7 @@ import {
   View,
 } from "react-native";
 import { KindChips } from "@/components/kind-chips";
-import type { MomentKind } from "@/kinds";
+import { kindIcon, momentLine, type MomentKind } from "@/kinds";
 import { photoUri, useMoments, type Moment } from "../../moments";
 
 export default function Index() {
@@ -199,36 +199,39 @@ export default function Index() {
       <FlatList
         data={moments}
         keyExtractor={(m) => m.id}
+        testID="timeline"
         renderItem={({ item }) => (
           <Pressable
             style={styles.moment}
             onLongPress={() => openMomentMenu(item)}
           >
-            <Text style={styles.date}>
-              {new Date(item.createdAt).toLocaleDateString("en-GB", {
-                weekday: "short",
-                day: "numeric",
-                month: "short",
-              })}
-            </Text>
-            {item.text ? <Text style={styles.text}>{item.text}</Text> : null}
-            {item.photos?.length ? (
-              <View style={styles.photoRow}>
-                {item.photos.map((p) => (
-                  <Pressable
-                    key={p}
-                    onPress={() =>
-                      router.push({
-                        pathname: "/moment/[id]",
-                        params: { id: item.id, photo: p },
-                      })
-                    }
-                  >
-                    <Image source={{ uri: photoUri(p) }} style={styles.photo} />
-                  </Pressable>
-                ))}
-              </View>
-            ) : null}
+            <View style={styles.kindIcon}>
+              <Ionicons name={kindIcon(item)} size={20} color="#8A5A3C" />
+            </View>
+            <View style={styles.momentBody}>
+              <Text style={styles.date}>{momentLine(item)}</Text>
+              {item.text ? <Text style={styles.text}>{item.text}</Text> : null}
+              {item.photos?.length ? (
+                <View style={styles.photoRow}>
+                  {item.photos.map((p) => (
+                    <Pressable
+                      key={p}
+                      onPress={() =>
+                        router.push({
+                          pathname: "/moment/[id]",
+                          params: { id: item.id, photo: p },
+                        })
+                      }
+                    >
+                      <Image
+                        source={{ uri: photoUri(p) }}
+                        style={styles.photo}
+                      />
+                    </Pressable>
+                  ))}
+                </View>
+              ) : null}
+            </View>
           </Pressable>
         )}
       />
@@ -291,10 +294,21 @@ const styles = StyleSheet.create({
   },
   buttonText: { fontFamily: fonts.bodyMedium, color: "#FFFCF6", fontSize: 15 },
   moment: {
+    flexDirection: "row",
+    gap: 14,
     paddingVertical: 16,
     borderBottomColor: "#E6DCCB",
     borderBottomWidth: 1,
   },
+  kindIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: "#EFE3D2",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  momentBody: { flex: 1 },
   date: {
     fontFamily: fonts.body,
     fontSize: 13,
@@ -314,5 +328,5 @@ const styles = StyleSheet.create({
     color: "#6B6158",
   },
   photoRow: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 8 },
-  photo: { width: 100, height: 100, borderRadius: 10 },
+  photo: { width: 88, height: 88, borderRadius: 10 },
 });

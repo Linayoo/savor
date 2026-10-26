@@ -12,6 +12,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { momentLine } from "@/kinds";
 import { photoUri, useMoments } from "../../moments";
 
 export default function MomentPhotos() {
@@ -83,13 +84,7 @@ export default function MomentPhotos() {
       </View>
 
       <View style={[styles.caption, { paddingBottom: insets.bottom + 16 }]}>
-        <Text style={styles.date}>
-          {new Date(moment.createdAt).toLocaleDateString("en-GB", {
-            weekday: "short",
-            day: "numeric",
-            month: "short",
-          })}
-        </Text>
+        <Text style={styles.date}>{momentLine(moment)}</Text>
         {moment.text ? <Text style={styles.text}>{moment.text}</Text> : null}
       </View>
     </View>
