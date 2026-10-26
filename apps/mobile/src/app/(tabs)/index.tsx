@@ -17,12 +17,15 @@ import {
   type TextInputInstance,
   View,
 } from "react-native";
+import { KindChips } from "@/components/kind-chips";
+import type { MomentKind } from "@/kinds";
 import { photoUri, useMoments, type Moment } from "../../moments";
 
 export default function Index() {
   const { moments, addMoment, updateMoment, deleteMoment } = useMoments();
   const [draft, setDraft] = useState("");
   const [draftPhotos, setDraftPhotos] = useState<string[]>([]);
+  const [draftKind, setDraftKind] = useState<MomentKind | undefined>();
   const [editingId, setEditingId] = useState<string | null>(null);
   const inputRef = useRef<TextInputInstance>(null);
 
@@ -94,9 +97,10 @@ export default function Index() {
 
     if (!text && draftPhotos.length === 0) return;
     try {
-      addMoment(text, draftPhotos);
+      addMoment(text, draftPhotos, draftKind);
       setDraft("");
       setDraftPhotos([]);
+      setDraftKind(undefined);
     } catch (e) {
       Alert.alert("Couldn't save the photos", String(e));
     }
@@ -169,6 +173,8 @@ export default function Index() {
             ))}
           </ScrollView>
         )}
+
+        <KindChips selected={draftKind} onChange={setDraftKind} />
 
         <View style={styles.actions}>
           {editingId ? (
