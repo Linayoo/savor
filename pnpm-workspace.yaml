@@ -4,3 +4,8 @@ packages:
 
 # React Native and Metro work most reliably with a flat node_modules
 nodeLinker: hoisted
+
+# unrs-resolver (via eslint-config-expo) ships its native binding as an
+# optional dependency, so its postinstall fallback isn't needed
+allowBuilds:
+  unrs-resolver: false
