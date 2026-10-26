@@ -1,6 +1,6 @@
 # 001: Moment kinds
 
-Status: approved
+Status: done
 
 ## Problem
 
@@ -61,18 +61,18 @@ None. Moments are still stored only on the phone.
 
 ## Acceptance criteria
 
-- [ ] Given no kind is selected, when I tap the Film chip, then it is shown as selected.
-- [ ] Given Film is selected, when I tap Film again, then no kind is selected.
-- [ ] Given Film is selected, when I tap Meal, then only Meal is selected.
-- [ ] Given I keep a moment with Meal selected, then the timeline shows the meal icon and "Meal · <date>", and the card is cleared with no kind selected.
-- [ ] Given I keep a moment with no kind, then the timeline shows the sparkle icon and only the date.
-- [ ] Given a moment stored before this feature (no `kind`), when the app loads, then it shows the sparkle icon and only the date.
-- [ ] Given I edit a moment and pick Book, when I tap Save, then the moment shows the book icon and "Book · <date>", with its text and photos unchanged.
-- [ ] Given I edit a moment that has a kind and unselect it, when I tap Save, then the moment has no kind.
-- [ ] Given a moment with a kind, when I open one of its photos, then the viewer caption shows "Kind · <date>".
-- [ ] Unit tests cover the kinds helpers and the context's add and update behavior with and without a kind.
-- [ ] A component test covers chip select, unselect and switch.
-- [ ] `pnpm typecheck`, `pnpm lint` and `pnpm test` pass, with jest-expo replacing the "no tests yet" placeholder.
+- [x] Given no kind is selected, when I tap the Film chip, then it is shown as selected.
+- [x] Given Film is selected, when I tap Film again, then no kind is selected.
+- [x] Given Film is selected, when I tap Meal, then only Meal is selected.
+- [x] Given I keep a moment with Meal selected, then the timeline shows the meal icon and "Meal · <date>", and the card is cleared with no kind selected.
+- [x] Given I keep a moment with no kind, then the timeline shows the sparkle icon and only the date.
+- [x] Given a moment stored before this feature (no `kind`), when the app loads, then it shows the sparkle icon and only the date.
+- [x] Given I edit a moment and pick Book, when I tap Save, then the moment shows the book icon and "Book · <date>", with its text and photos unchanged.
+- [x] Given I edit a moment that has a kind and unselect it, when I tap Save, then the moment has no kind.
+- [x] Given a moment with a kind, when I open one of its photos, then the viewer caption shows "Kind · <date>".
+- [x] Unit tests cover the kinds helpers and the context's add and update behavior with and without a kind.
+- [x] A component test covers chip select, unselect and switch.
+- [x] `pnpm typecheck`, `pnpm lint` and `pnpm test` pass, with jest-expo replacing the "no tests yet" placeholder.
 
 ## Out of scope
 

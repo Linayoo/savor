@@ -41,7 +41,7 @@ pnpm mobile
 
 - [x] Core app: keep moments with photos, timeline, gallery, full-screen viewer, edit, delete
 - [x] M0: monorepo, CI, specs
-- [ ] M1: moment kinds (first spec-driven feature)
+- [x] M1: moment kinds (first spec-driven feature)
 - [ ] M2: API, auth, sync, S3 photos, deployed with Terraform
 - [ ] M3: monthly letter (LLM API, scheduled)
 - [ ] M4: enrichment agent (SQS, tools)
