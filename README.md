@@ -1,56 +1,49 @@
-# Welcome to your Expo app 👋
+# Savor
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+A little app for coming back to the moment and savoring it.
 
-## Get started
+Keep a moment in seconds, with photos and a line. Look back through a timeline and a gallery. Once a month, Savor writes you a short letter from what you kept.
 
-1. Install dependencies
+Status: in active development.
 
-   ```bash
-   npm install
-   ```
+## Architecture (planned)
 
-2. Start the app
+- Mobile: Expo (React Native, TypeScript, Expo Router), local-first
+- API: Node, tRPC, Drizzle, Postgres, shared Zod schemas
+- Cloud: AWS Lambda (Docker image), API Gateway, S3, Cognito, SQS, EventBridge
+- AI: LLM-written monthly letter, enrichment agent with tools (TMDB, image captions, kind suggestions)
+- Infrastructure: Terraform
+- CI/CD: GitHub Actions, EAS Build to TestFlight
 
-   ```bash
-   npx expo start
-   ```
+## Repo structure
 
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
+```
+apps/mobile      Expo app
+apps/api         tRPC API (planned)
+packages/shared  Zod schemas and types (planned)
+infra/           Terraform (planned)
+specs/           one spec per feature
+docs/adr/        architecture decisions
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+## How it's built
 
-### Other setup steps
+Spec-driven: every feature starts as a spec in `specs/` with acceptance criteria, and larger decisions are recorded as ADRs in `docs/adr/`.
 
-- To set up ESLint for linting, run `npx expo lint`, or follow our guide on ["Using ESLint and Prettier"](https://docs.expo.dev/guides/using-eslint/)
-- If you'd like to set up unit testing, follow our guide on ["Unit Testing with Jest"](https://docs.expo.dev/develop/unit-testing/)
-- Learn more about the TypeScript setup in this template in our guide on ["Using TypeScript"](https://docs.expo.dev/guides/typescript/)
+## Getting started
 
-## Learn more
+```
+pnpm install
+pnpm mobile
+```
 
-To learn more about developing your project with Expo, look at the following resources:
+## Roadmap
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
-
-## Join the community
-
-Join our community of developers creating universal apps.
-
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+- [x] Core app: keep moments with photos, timeline, gallery, full-screen viewer, edit, delete
+- [ ] M0: monorepo, CI, specs
+- [ ] M1: moment kinds (first spec-driven feature)
+- [ ] M2: API, auth, sync, S3 photos, deployed with Terraform
+- [ ] M3: monthly letter (LLM API, scheduled)
+- [ ] M4: enrichment agent (SQS, tools)
+- [ ] M5: TestFlight via CI, demo video
+- [ ] M6: ask your moments (RAG, optional)
