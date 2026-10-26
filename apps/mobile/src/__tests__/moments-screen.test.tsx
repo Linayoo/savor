@@ -3,8 +3,10 @@ import {
   render,
   screen,
   userEvent,
+  waitFor,
   within,
 } from "@testing-library/react-native";
+import { ActionSheetIOS } from "react-native";
 import Index from "@/app/(tabs)/index";
 import { MomentsProvider, type Moment } from "@/moments";
 
@@ -81,5 +83,87 @@ describe("Moments screen: timeline", () => {
     const list = within(screen.getByTestId("timeline"));
     expect(list.getByTestId("icon-sparkles-outline")).toBeOnTheScreen();
     expect(list.getByText("Thu 1 Oct")).toBeOnTheScreen();
+  });
+});
+
+describe("Moments screen: editing a moment", () => {
+  let menuOptions: string[] = [];
+
+  // Long-press opens the iOS action sheet; choose "Edit moment" (index 1)
+  beforeEach(() => {
+    jest
+      .spyOn(ActionSheetIOS, "showActionSheetWithOptions")
+      .mockImplementation((options, callback) => {
+        menuOptions = options.options;
+        callback(1);
+      });
+  });
+
+  async function startEditing(text: string) {
+    const user = userEvent.setup();
+    await user.longPress(await screen.findByText(text));
+    return user;
+  }
+
+  async function storedMoments(): Promise<Moment[]> {
+    return JSON.parse((await AsyncStorage.getItem("savor.moments")) ?? "[]");
+  }
+
+  it("calls the menu option 'Edit moment'", async () => {
+    await renderScreen([oldMoment]);
+    await startEditing("Rain on the window");
+
+    expect(menuOptions).toContain("Edit moment");
+    expect(menuOptions).not.toContain("Edit words");
+  });
+
+  it("loads the moment's text and kind into the card", async () => {
+    await renderScreen([{ ...oldMoment, kind: "nature" }]);
+    await startEditing("Rain on the window");
+
+    expect(input()).toHaveDisplayValue("Rain on the window");
+    expect(chip("Nature")).toBeSelected();
+  });
+
+  it("saves a new kind, keeping the text and photos", async () => {
+    await renderScreen([oldMoment]);
+    const user = await startEditing("Rain on the window");
+
+    await user.press(chip("Book"));
+    await user.press(screen.getByText("Save"));
+
+    const list = within(screen.getByTestId("timeline"));
+    expect(await list.findByText("Book · Thu 1 Oct")).toBeOnTheScreen();
+    expect(list.getByTestId("icon-book-outline")).toBeOnTheScreen();
+    expect(list.getByText("Rain on the window")).toBeOnTheScreen();
+    await waitFor(async () =>
+      expect(await storedMoments()).toEqual([{ ...oldMoment, kind: "book" }]),
+    );
+  });
+
+  it("clears the kind when it's unselected before saving", async () => {
+    await renderScreen([{ ...oldMoment, kind: "meal" }]);
+    const user = await startEditing("Rain on the window");
+
+    await user.press(chip("Meal"));
+    await user.press(screen.getByText("Save"));
+
+    const list = within(screen.getByTestId("timeline"));
+    expect(await list.findByText("Thu 1 Oct")).toBeOnTheScreen();
+    expect(list.getByTestId("icon-sparkles-outline")).toBeOnTheScreen();
+    await waitFor(async () =>
+      expect((await storedMoments())[0]).not.toHaveProperty("kind"),
+    );
+  });
+
+  it("restores an empty card with no kind on Cancel", async () => {
+    await renderScreen([{ ...oldMoment, kind: "meal" }]);
+    const user = await startEditing("Rain on the window");
+
+    await user.press(screen.getByText("Cancel"));
+
+    expect(input()).toHaveDisplayValue("");
+    expect(chip("Meal")).not.toBeSelected();
+    expect(screen.getByText("Keep")).toBeOnTheScreen();
   });
 });

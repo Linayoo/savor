@@ -76,12 +76,14 @@ export default function Index() {
     setEditingId(moment.id);
     setDraft(moment.text);
     setDraftPhotos([]);
+    setDraftKind(moment.kind);
     inputRef.current?.focus();
   };
 
   const cancelEdit = () => {
     setEditingId(null);
     setDraft("");
+    setDraftKind(undefined);
   };
 
   const keep = () => {
@@ -90,7 +92,7 @@ export default function Index() {
     if (editingId) {
       const moment = moments.find((m) => m.id === editingId);
       if (!text && !moment?.photos?.length) return; // don't leave an empty moment
-      updateMoment(editingId, text);
+      updateMoment(editingId, text, draftKind);
       cancelEdit();
       return;
     }
@@ -121,7 +123,7 @@ export default function Index() {
     if (Platform.OS === "ios") {
       ActionSheetIOS.showActionSheetWithOptions(
         {
-          options: ["Cancel", "Edit words", "Delete moment"],
+          options: ["Cancel", "Edit moment", "Delete moment"],
           cancelButtonIndex: 0,
           destructiveButtonIndex: 2,
         },
@@ -132,7 +134,7 @@ export default function Index() {
       );
     } else {
       Alert.alert("Moment", undefined, [
-        { text: "Edit words", onPress: () => startEdit(moment) },
+        { text: "Edit moment", onPress: () => startEdit(moment) },
         {
           text: "Delete moment",
           style: "destructive",
