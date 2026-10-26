@@ -7,11 +7,13 @@ import {
   useEffect,
   useState,
 } from "react";
+import type { MomentKind } from "./kinds";
 
 export type Moment = {
   id: string;
   text: string;
   photos?: string[];
+  kind?: MomentKind;
   createdAt: number;
 };
 
@@ -32,8 +34,8 @@ export function photoUri(photo: string): string {
 
 type MomentsContextValue = {
   moments: Moment[];
-  addMoment: (text: string, tempPhotos: string[]) => void;
-  updateMoment: (id: string, text: string) => void;
+  addMoment: (text: string, tempPhotos: string[], kind?: MomentKind) => void;
+  updateMoment: (id: string, text: string, kind?: MomentKind) => void;
   deleteMoment: (id: string) => void;
 };
 
@@ -55,17 +57,24 @@ export function MomentsProvider({ children }: { children: ReactNode }) {
     AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(moments));
   }, [moments, loaded]);
 
-  const addMoment = (text: string, tempPhotos: string[]) => {
+  const addMoment = (text: string, tempPhotos: string[], kind?: MomentKind) => {
     const photos = tempPhotos.map(savePhoto);
     const now = Date.now();
     setMoments((prev) => [
-      { id: String(now), text, photos, createdAt: now },
+      { id: String(now), text, photos, createdAt: now, ...(kind && { kind }) },
       ...prev,
     ]);
   };
 
-  const updateMoment = (id: string, text: string) => {
-    setMoments((prev) => prev.map((m) => (m.id === id ? { ...m, text } : m)));
+  const updateMoment = (id: string, text: string, kind?: MomentKind) => {
+    setMoments((prev) =>
+      prev.map((m) => {
+        if (m.id !== id) return m;
+        const updated: Moment = { ...m, text, kind };
+        if (!kind) delete updated.kind;
+        return updated;
+      }),
+    );
   };
 
   const deleteMoment = (id: string) => {
