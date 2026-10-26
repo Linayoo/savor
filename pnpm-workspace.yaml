@@ -9,3 +9,5 @@ nodeLinker: hoisted
 # optional dependency, so its postinstall fallback isn't needed
 allowBuilds:
   unrs-resolver: false
+  # @parcel/watcher (via jest) also ships prebuilt bindings as optional dependencies
+  "@parcel/watcher": false
