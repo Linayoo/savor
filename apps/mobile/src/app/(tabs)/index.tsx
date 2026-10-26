@@ -14,6 +14,7 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  type TextInputInstance,
   View,
 } from "react-native";
 import { photoUri, useMoments, type Moment } from "../../moments";
@@ -23,7 +24,7 @@ export default function Index() {
   const [draft, setDraft] = useState("");
   const [draftPhotos, setDraftPhotos] = useState<string[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const inputRef = useRef<TextInput>(null);
+  const inputRef = useRef<TextInputInstance>(null);
 
   const addUris = (uris: string[]) =>
     setDraftPhotos((prev) => [...prev, ...uris]);
