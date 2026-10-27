@@ -21,9 +21,13 @@ const NO_KIND_ICON: IconName = "sparkles-outline";
 
 type HasKind = { kind?: MomentKind };
 
+export function isMomentKind(value: unknown): value is MomentKind {
+  return typeof value === "string" && Object.hasOwn(KINDS, value);
+}
+
 // Stored moments may carry a kind this version doesn't know; treat it as none
 function kindOf({ kind }: HasKind) {
-  return kind && Object.hasOwn(KINDS, kind) ? KINDS[kind] : undefined;
+  return isMomentKind(kind) ? KINDS[kind] : undefined;
 }
 
 export function kindIcon(moment: HasKind): IconName {
