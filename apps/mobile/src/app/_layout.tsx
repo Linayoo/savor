@@ -9,6 +9,8 @@ import {
   WorkSans_500Medium,
 } from "@expo-google-fonts/work-sans";
 import { Stack } from "expo-router";
+import { db } from "../db/client";
+import { DatabaseGate } from "../db/database-gate";
 import { MomentsProvider } from "../moments";
 
 export default function RootLayout() {
@@ -23,14 +25,16 @@ export default function RootLayout() {
   if (!fontsLoaded) return null;
 
   return (
-    <MomentsProvider>
-      <Stack screenOptions={{ headerShown: false }}>
-        <Stack.Screen name="(tabs)" />
-        <Stack.Screen
-          name="moment/[id]"
-          options={{ presentation: "fullScreenModal", animation: "fade" }}
-        />
-      </Stack>
-    </MomentsProvider>
+    <DatabaseGate>
+      <MomentsProvider db={db}>
+        <Stack screenOptions={{ headerShown: false }}>
+          <Stack.Screen name="(tabs)" />
+          <Stack.Screen
+            name="moment/[id]"
+            options={{ presentation: "fullScreenModal", animation: "fade" }}
+          />
+        </Stack>
+      </MomentsProvider>
+    </DatabaseGate>
   );
 }

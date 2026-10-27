@@ -1,23 +1,11 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Directory, File, Paths } from "expo-file-system";
-import {
-  createContext,
-  ReactNode,
-  useContext,
-  useEffect,
-  useState,
-} from "react";
+import { createContext, ReactNode, useContext, useState } from "react";
+import * as store from "./db/moments-store";
+import type { AppDb } from "./db/types";
 import type { MomentKind } from "./kinds";
 
-export type Moment = {
-  id: string;
-  text: string;
-  photos?: string[];
-  kind?: MomentKind;
-  createdAt: number;
-};
+export type { Moment } from "./db/moments-store";
 
-const STORAGE_KEY = "savor.moments";
 const photosDir = new Directory(Paths.document, "photos");
 
 function savePhoto(tempUri: string): string {
@@ -33,7 +21,7 @@ export function photoUri(photo: string): string {
 }
 
 type MomentsContextValue = {
-  moments: Moment[];
+  moments: store.Moment[];
   addMoment: (text: string, tempPhotos: string[], kind?: MomentKind) => void;
   updateMoment: (id: string, text: string, kind?: MomentKind) => void;
   deleteMoment: (id: string) => void;
@@ -41,50 +29,35 @@ type MomentsContextValue = {
 
 const MomentsContext = createContext<MomentsContextValue | null>(null);
 
-export function MomentsProvider({ children }: { children: ReactNode }) {
-  const [moments, setMoments] = useState<Moment[]>([]);
-  const [loaded, setLoaded] = useState(false);
-
-  useEffect(() => {
-    AsyncStorage.getItem(STORAGE_KEY).then((json) => {
-      if (json) setMoments(JSON.parse(json));
-      setLoaded(true);
-    });
-  }, []);
-
-  useEffect(() => {
-    if (!loaded) return;
-    AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(moments));
-  }, [moments, loaded]);
+export function MomentsProvider({
+  db,
+  children,
+}: {
+  db: AppDb;
+  children: ReactNode;
+}) {
+  const [moments, setMoments] = useState(() => store.listMoments(db));
+  const reload = () => setMoments(store.listMoments(db));
 
   const addMoment = (text: string, tempPhotos: string[], kind?: MomentKind) => {
     const photos = tempPhotos.map(savePhoto);
-    const now = Date.now();
-    setMoments((prev) => [
-      { id: String(now), text, photos, createdAt: now, ...(kind && { kind }) },
-      ...prev,
-    ]);
+    store.insertMoment(db, { text, photos, kind });
+    reload();
   };
 
   const updateMoment = (id: string, text: string, kind?: MomentKind) => {
-    setMoments((prev) =>
-      prev.map((m) => {
-        if (m.id !== id) return m;
-        const updated: Moment = { ...m, text, kind };
-        if (!kind) delete updated.kind;
-        return updated;
-      }),
-    );
+    store.updateMoment(db, id, { text, kind });
+    reload();
   };
 
   const deleteMoment = (id: string) => {
-    const target = moments.find((m) => m.id === id);
-    target?.photos?.forEach((p) => {
+    const fileNames = store.deleteMoment(db, id);
+    fileNames.forEach((p) => {
       if (p.startsWith("file://")) return; // old temporary photos, not ours to delete
       const file = new File(photosDir, p);
       if (file.exists) file.delete();
     });
-    setMoments((prev) => prev.filter((m) => m.id !== id));
+    reload();
   };
 
   return (

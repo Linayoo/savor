@@ -1,32 +1,32 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   render,
   screen,
   userEvent,
-  waitFor,
   within,
 } from "@testing-library/react-native";
 import { ActionSheetIOS } from "react-native";
 import Index from "@/app/(tabs)/index";
-import { MomentsProvider, type Moment } from "@/moments";
+import { listMoments } from "@/db/moments-store";
+import type { AppDb } from "@/db/types";
+import { MomentsProvider } from "@/moments";
+import { createTestDb, seedMoments } from "@/test-utils/db";
 
 jest.mock("expo-router", () => ({ router: { push: jest.fn() } }));
 
 // Thu 1 Oct 2026, 09:30 UTC (tests run in UTC), stored before kinds existed
-const oldMoment: Moment = {
-  id: "1",
+const oldMoment = {
   text: "Rain on the window",
   photos: ["1-a.jpg"],
   createdAt: Date.UTC(2026, 9, 1, 9, 30),
 };
 
-async function renderScreen(stored?: Moment[]) {
-  await AsyncStorage.clear();
-  if (stored) {
-    await AsyncStorage.setItem("savor.moments", JSON.stringify(stored));
-  }
+let db: AppDb;
+
+async function renderScreen(stored: Parameters<typeof seedMoments>[1] = []) {
+  db = createTestDb();
+  seedMoments(db, stored);
   await render(
-    <MomentsProvider>
+    <MomentsProvider db={db}>
       <Index />
     </MomentsProvider>,
   );
@@ -105,10 +105,6 @@ describe("Moments screen: editing a moment", () => {
     return user;
   }
 
-  async function storedMoments(): Promise<Moment[]> {
-    return JSON.parse((await AsyncStorage.getItem("savor.moments")) ?? "[]");
-  }
-
   it("calls the menu option 'Edit moment'", async () => {
     await renderScreen([oldMoment]);
     await startEditing("Rain on the window");
@@ -136,9 +132,9 @@ describe("Moments screen: editing a moment", () => {
     expect(await list.findByText("Book · Thu 1 Oct")).toBeOnTheScreen();
     expect(list.getByTestId("icon-book-outline")).toBeOnTheScreen();
     expect(list.getByText("Rain on the window")).toBeOnTheScreen();
-    await waitFor(async () =>
-      expect(await storedMoments()).toEqual([{ ...oldMoment, kind: "book" }]),
-    );
+    expect(listMoments(db)).toEqual([
+      { ...oldMoment, id: expect.any(String), kind: "book" },
+    ]);
   });
 
   it("clears the kind when it's unselected before saving", async () => {
@@ -151,9 +147,7 @@ describe("Moments screen: editing a moment", () => {
     const list = within(screen.getByTestId("timeline"));
     expect(await list.findByText("Thu 1 Oct")).toBeOnTheScreen();
     expect(list.getByTestId("icon-sparkles-outline")).toBeOnTheScreen();
-    await waitFor(async () =>
-      expect((await storedMoments())[0]).not.toHaveProperty("kind"),
-    );
+    expect(listMoments(db)[0]).not.toHaveProperty("kind");
   });
 
   it("restores an empty card with no kind on Cancel", async () => {
