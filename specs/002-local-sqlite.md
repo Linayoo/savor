@@ -1,6 +1,6 @@
 # 002: Moments in a local SQLite database
 
-Status: approved
+Status: done
 
 ## Problem
 
@@ -84,19 +84,19 @@ expo-sqlite can't run inside Jest. The data layer should take a Drizzle database
 
 ## Acceptance criteria
 
-- [ ] Given moments stored in AsyncStorage (with and without photos, with and without a kind), when the app starts after the update, then every moment appears with the same text, kind, photos in the same order, and date.
-- [ ] Given the import has run, when the app starts again, then it does not import again and nothing is duplicated.
-- [ ] Given the import fails partway, then no moments are written to SQLite, neither the `app_meta` marker nor the flag is set, and the old AsyncStorage data is unchanged.
-- [ ] Given the import committed but the AsyncStorage flag wasn't set (the app stopped in between), when the app starts again, then it does not import again and sets the flag.
-- [ ] Given a stored kind that isn't a known kind, when imported, then the moment has no kind.
-- [ ] Given I keep a moment, then it gets a UUID id, and `created_at` and `updated_at` are set.
-- [ ] Given I edit a moment's text or kind, then `updated_at` changes and `created_at` does not.
-- [ ] Given I delete a moment, then it disappears from the timeline, gallery and viewer; its row and photo rows have `deleted_at` set; and its photo files are gone from the phone.
-- [ ] Given moments created on two devices in the same millisecond, then their ids differ (UUIDs, covered by using `randomUUID`).
-- [ ] The timeline is sorted newest first, as before.
-- [ ] All spec 001 tests still pass, adapted only where they touched storage directly.
-- [ ] The app has no web target, and `expo export --platform ios` still bundles.
-- [ ] `pnpm typecheck`, `pnpm lint` and `pnpm test` pass.
+- [x] Given moments stored in AsyncStorage (with and without photos, with and without a kind), when the app starts after the update, then every moment appears with the same text, kind, photos in the same order, and date.
+- [x] Given the import has run, when the app starts again, then it does not import again and nothing is duplicated.
+- [x] Given the import fails partway, then no moments are written to SQLite, neither the `app_meta` marker nor the flag is set, and the old AsyncStorage data is unchanged.
+- [x] Given the import committed but the AsyncStorage flag wasn't set (the app stopped in between), when the app starts again, then it does not import again and sets the flag.
+- [x] Given a stored kind that isn't a known kind, when imported, then the moment has no kind.
+- [x] Given I keep a moment, then it gets a UUID id, and `created_at` and `updated_at` are set.
+- [x] Given I edit a moment's text or kind, then `updated_at` changes and `created_at` does not.
+- [x] Given I delete a moment, then it disappears from the timeline, gallery and viewer; its row and photo rows have `deleted_at` set; and its photo files are gone from the phone.
+- [x] Given moments created on two devices in the same millisecond, then their ids differ (UUIDs, covered by using `randomUUID`).
+- [x] The timeline is sorted newest first, as before.
+- [x] All spec 001 tests still pass, adapted only where they touched storage directly.
+- [x] The app has no web target, and `expo export --platform ios` still bundles.
+- [x] `pnpm typecheck`, `pnpm lint` and `pnpm test` pass.
 
 ## Out of scope
 
