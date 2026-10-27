@@ -26,5 +26,6 @@ Portfolio project: full stack, deployed on AWS, spec-driven, with LLM and agent 
 - Implement against the spec's acceptance criteria. If behavior changes, update the spec in the same PR.
 - Conventional commits, one concern per commit.
 - Package manager is pnpm. Run `pnpm typecheck`, `pnpm lint` and `pnpm test` before committing.
+- Push docs-only commits once checks pass. For code changes, wait until I've confirmed the manual checks.
 - Infrastructure only through Terraform, never created by hand.
 - Never commit secrets. Keys live in environment variables or AWS Secrets Manager.
