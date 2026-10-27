@@ -11,3 +11,5 @@ allowBuilds:
   unrs-resolver: false
   # @parcel/watcher (via jest) also ships prebuilt bindings as optional dependencies
   "@parcel/watcher": false
+  # esbuild (via drizzle-kit) gets its binary from optional platform packages
+  esbuild: false
