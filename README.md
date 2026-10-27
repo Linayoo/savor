@@ -70,7 +70,7 @@ curl -G http://localhost:3000/sync.pull -H 'x-dev-user-id: ana' \
 - [x] M1: moment kinds (first spec-driven feature)
 - [ ] M2: backend and sync
   - [x] Local SQLite store with UUIDs and tombstones (spec 002)
-  - [ ] Shared schemas and local API (spec 003)
+  - [x] Shared schemas and local API (spec 003)
   - [ ] Auth and deployment on AWS (spec 004)
   - [ ] Sync and photo uploads (spec 005)
 - [ ] M3: monthly letter (LLM API, scheduled)

@@ -1,6 +1,6 @@
 # 003: Shared schemas and the sync API (local)
 
-Status: approved
+Status: done
 
 ## Problem
 
@@ -75,21 +75,21 @@ Pull: rows of the calling user with `version > sinceVersion`, moments and photos
 
 ## Acceptance criteria
 
-- [ ] `packages/shared` exports the schemas and the kind enum; the app's `MomentKind` comes from it, and the app still typechecks, bundles for iOS and passes its tests.
-- [ ] Given no user, when calling `sync.push` or `sync.pull`, then the call fails with `UNAUTHORIZED`. `health.check` works without a user.
-- [ ] Given `NODE_ENV` is not `development`, then `x-dev-user-id` is ignored.
-- [ ] Given a push of two moments and three photos, then a pull from 0 returns all five with increasing versions, and the returned version equals the highest one.
-- [ ] Given a pull with `limit` smaller than the number of changes, then `hasMore` is true, and pulling again from the returned version returns the rest with no gaps and no repeats.
-- [ ] Given a moment edited and pushed again, then a pull from the earlier version returns it once, with the new text and a higher version.
-- [ ] Given a deleted moment, when a later push contains an edit to it, then it stays deleted and its text is unchanged.
-- [ ] Given the same push sent twice, then the stored moments and photos are the same as after one push, apart from `version`.
-- [ ] Given user A's moment, when user B pushes a change with the same id, then the push fails with `CONFLICT` and A's moment is unchanged; and user B's pull never returns A's rows.
-- [ ] Given user A's moment, when user B pushes a photo whose `momentId` is A's moment, then the push fails with `CONFLICT` and nothing from B's push is stored.
-- [ ] Given two pushes for the same user running at the same time, then every row gets a unique version and none are lost.
-- [ ] Given invalid input (bad uuid, unknown kind, text over 5000 characters, a photo position outside the 32-bit range, more than 100 items), then the call fails with `BAD_REQUEST` and nothing is stored.
-- [ ] Given a push that fails partway, then nothing from that push is stored and the user's version is unchanged.
-- [ ] `docker compose up -d` and `pnpm --filter @savor/api dev` start a working API; README explains both.
-- [ ] `pnpm typecheck`, `pnpm lint` and `pnpm test` pass locally and in CI, including API tests against Postgres.
+- [x] `packages/shared` exports the schemas and the kind enum; the app's `MomentKind` comes from it, and the app still typechecks, bundles for iOS and passes its tests.
+- [x] Given no user, when calling `sync.push` or `sync.pull`, then the call fails with `UNAUTHORIZED`. `health.check` works without a user.
+- [x] Given `NODE_ENV` is not `development`, then `x-dev-user-id` is ignored.
+- [x] Given a push of two moments and three photos, then a pull from 0 returns all five with increasing versions, and the returned version equals the highest one.
+- [x] Given a pull with `limit` smaller than the number of changes, then `hasMore` is true, and pulling again from the returned version returns the rest with no gaps and no repeats.
+- [x] Given a moment edited and pushed again, then a pull from the earlier version returns it once, with the new text and a higher version.
+- [x] Given a deleted moment, when a later push contains an edit to it, then it stays deleted and its text is unchanged.
+- [x] Given the same push sent twice, then the stored moments and photos are the same as after one push, apart from `version`.
+- [x] Given user A's moment, when user B pushes a change with the same id, then the push fails with `CONFLICT` and A's moment is unchanged; and user B's pull never returns A's rows.
+- [x] Given user A's moment, when user B pushes a photo whose `momentId` is A's moment, then the push fails with `CONFLICT` and nothing from B's push is stored.
+- [x] Given two pushes for the same user running at the same time, then every row gets a unique version and none are lost.
+- [x] Given invalid input (bad uuid, unknown kind, text over 5000 characters, a photo position outside the 32-bit range, more than 100 items), then the call fails with `BAD_REQUEST` and nothing is stored.
+- [x] Given a push that fails partway, then nothing from that push is stored and the user's version is unchanged.
+- [x] `docker compose up -d` and `pnpm --filter @savor/api dev` start a working API; README explains both.
+- [x] `pnpm typecheck`, `pnpm lint` and `pnpm test` pass locally and in CI, including API tests against Postgres.
 
 ## Out of scope
 
