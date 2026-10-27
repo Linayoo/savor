@@ -1,0 +1,22 @@
+# Local Postgres for the API (spec 003). Development uses the savor database,
+# tests use savor_test. Credentials are for this local container only.
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: savor
+      POSTGRES_PASSWORD: savor
+      POSTGRES_DB: savor
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./docker/postgres:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U savor -d savor"]
+      interval: 2s
+      timeout: 5s
+      retries: 15
+
+volumes:
+  postgres-data:
