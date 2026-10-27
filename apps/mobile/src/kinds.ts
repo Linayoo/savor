@@ -1,8 +1,12 @@
 import type Ionicons from "@expo/vector-icons/Ionicons";
+import { MOMENT_KINDS, momentKindSchema, type MomentKind } from "@savor/shared";
 import type { ComponentProps } from "react";
 
 type IconName = ComponentProps<typeof Ionicons>["name"];
 
+export type { MomentKind };
+
+// Keys come from @savor/shared; a new kind there needs a label and icon here
 export const KINDS = {
   meal: { label: "Meal", icon: "restaurant-outline" },
   film: { label: "Film", icon: "film-outline" },
@@ -11,18 +15,16 @@ export const KINDS = {
   friends: { label: "Friends", icon: "people-outline" },
   body: { label: "Body", icon: "body-outline" },
   phrase: { label: "Phrase", icon: "chatbubble-ellipses-outline" },
-} as const satisfies Record<string, { label: string; icon: IconName }>;
+} as const satisfies Record<MomentKind, { label: string; icon: IconName }>;
 
-export type MomentKind = keyof typeof KINDS;
-
-export const KIND_LIST = Object.keys(KINDS) as MomentKind[];
+export const KIND_LIST: readonly MomentKind[] = MOMENT_KINDS;
 
 const NO_KIND_ICON: IconName = "sparkles-outline";
 
 type HasKind = { kind?: MomentKind };
 
 export function isMomentKind(value: unknown): value is MomentKind {
-  return typeof value === "string" && Object.hasOwn(KINDS, value);
+  return momentKindSchema.safeParse(value).success;
 }
 
 // Stored moments may carry a kind this version doesn't know; treat it as none
