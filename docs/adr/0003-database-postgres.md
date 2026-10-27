@@ -26,6 +26,7 @@ Drizzle is pinned to the stable 0.45.x line.
 - Lambda can reach Neon over the internet without a VPC. RDS would put the Lambda in a VPC, which then needs a NAT gateway (a fixed monthly cost) to reach the LLM API and TMDB, plus connection pooling.
 - The WebSocket driver supports interactive transactions (`db.transaction()`), which sync needs to assign versions and write changes atomically. Neon's HTTP driver only supports non-interactive batches, so it isn't used.
 - Node 24 has a built-in WebSocket, so the API doesn't need the `ws` package.
+- Locally and in CI, the API talks to Postgres 17 in Docker through `drizzle-orm/node-postgres` instead (spec 003). One `createDb()` picks the driver. Both drivers support interactive transactions and share one database type, so the sync code is the same on both. Creating the Neon `Pool` per request comes with the Lambda entry point in spec 004.
 - The Free plan and scale-to-zero keep cost near zero. As of 2026-10-27, the Free plan includes:
   - 100 CU-hours of compute per project per month
   - 0.5 GB storage per project

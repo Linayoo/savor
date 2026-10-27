@@ -19,8 +19,8 @@ Status: in active development.
 
 ```
 apps/mobile      Expo app
-apps/api         tRPC API (planned)
-packages/shared  Zod schemas and types (planned)
+apps/api         tRPC API
+packages/shared  Zod schemas and types
 infra/           Terraform (planned)
 specs/           one spec per feature
 docs/adr/        architecture decisions
@@ -32,10 +32,36 @@ Spec-driven: every feature starts as a spec in `specs/` with acceptance criteria
 
 ## Getting started
 
+You need Node 24 (`nvm use` picks it up from `.nvmrc`), pnpm through corepack, and Docker for the API.
+
 ```
 pnpm install
 pnpm mobile
 ```
+
+### API
+
+The API runs locally against Postgres in Docker. `docker compose up -d` starts Postgres 17 on port 5433, with a `savor` database for development and a `savor_test` database for tests.
+
+```
+docker compose up -d
+pnpm --filter @savor/api dev
+```
+
+The dev server applies the migrations and serves tRPC on `http://localhost:3000`. Until auth arrives in spec 004, a development-only `x-dev-user-id` header stands in for the signed-in user:
+
+```
+curl http://localhost:3000/health.check
+
+curl -X POST http://localhost:3000/sync.push \
+  -H 'content-type: application/json' -H 'x-dev-user-id: ana' \
+  -d '{"moments":[{"id":"6f1c2c1e-1b7a-4c1e-9d2a-3f4b5c6d7e8f","text":"Ramen","kind":"meal","createdAt":1790847000000,"updatedAt":1790847000000,"deletedAt":null}],"photos":[]}'
+
+curl -G http://localhost:3000/sync.pull -H 'x-dev-user-id: ana' \
+  --data-urlencode 'input={"sinceVersion":0}'
+```
+
+`pnpm test` needs the same Postgres running, since the API tests use the `savor_test` database.
 
 ## Roadmap
 
