@@ -1,0 +1,2 @@
+# Copy to terraform.tfvars (gitignored) and fill in
+neon_org_id = "org-example-123456"
