@@ -1,0 +1,9 @@
+# The build context is the repo root; the image needs only these
+*
+!package.json
+!pnpm-lock.yaml
+!pnpm-workspace.yaml
+!apps/api
+!packages/shared
+**/node_modules
+**/dist

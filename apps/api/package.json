@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "NODE_ENV=development tsx watch src/dev.ts",
+    "build": "tsx scripts/build.ts",
     "db:generate": "drizzle-kit generate",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
@@ -25,6 +26,7 @@
     "@types/node": "^24.19.2",
     "@types/pg": "^8.23.1",
     "drizzle-kit": "~0.31.11",
+    "esbuild": "~0.28.2",
     "eslint": "^9.39.5",
     "tsx": "^4.23.15",
     "typescript": "~6.0.3",
