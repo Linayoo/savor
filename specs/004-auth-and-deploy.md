@@ -19,7 +19,7 @@ The sync API from spec 003 runs only on a laptop, with a development stand-in fo
 
 `infra/bootstrap` (local state, applied once):
 - S3 bucket for Terraform state: versioned, encrypted, public access blocked, named `savor-tfstate-<account id>`. Locking with S3's native lock file (`use_lockfile`, GA since Terraform 1.11; no DynamoDB table).
-- GitHub OIDC identity provider and a deploy role that only this repository's `main` branch can assume (`sub` = `repo:Linayoo/savor:ref:refs/heads/main`, so deploy jobs don't use a GitHub environment). Bootstrap creates the role with its trust policy only; its permissions are attached in `infra/app`, next to the resources they name.
+- GitHub OIDC identity provider and a deploy role that only this repository's `main` branch can assume (`sub` = `repo:Linayoo@103110270/savor@1434441712:ref:refs/heads/main`: the repository uses GitHub's immutable subjects, which carry the owner and repository ids, so a recreated repository with the same name can't deploy. Deploy jobs don't use a GitHub environment, which would change the subject). Bootstrap creates the role with its trust policy only; its permissions are attached in `infra/app`, next to the resources they name.
 - AWS Budget of 5 USD per month with email alerts at 80% and 100%. AWS Budgets verifies a new email recipient: the link must be opened within 12 hours while signed in to the account.
 - Personal values (alert email, Neon org id) go in a gitignored `terraform.tfvars`, with a committed `terraform.tfvars.example`.
 
