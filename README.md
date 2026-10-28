@@ -225,7 +225,7 @@ The user pool has deletion protection, and destroying the Neon project deletes t
 - [ ] M2: backend and sync
   - [x] Local SQLite store with UUIDs and tombstones (spec 002)
   - [x] Shared schemas and local API (spec 003)
-  - [ ] Auth and deployment on AWS (spec 004)
+  - [x] Auth and deployment on AWS (spec 004)
   - [ ] Sync and photo uploads (spec 005)
 - [ ] M3: monthly letter (LLM API, scheduled)
 - [ ] M4: enrichment agent (SQS, tools)

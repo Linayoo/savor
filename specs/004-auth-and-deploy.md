@@ -1,6 +1,6 @@
 # 004: Auth and deployment on AWS
 
-Status: approved
+Status: done
 
 ## Problem
 
@@ -81,21 +81,21 @@ The first deploy job after pushing then proves the pipeline.
 
 ## Acceptance criteria
 
-- [ ] Given no token, when calling `sync.push` or `sync.pull` on the deployed API, then the response is 401 and the Lambda is not invoked.
-- [ ] Given a valid token for user A, when A pushes and pulls, then A gets back what A pushed.
-- [ ] Given valid tokens for users A and B, then B's pull never returns A's data.
-- [ ] Given a request with `x-dev-user-id` but no token, then it is rejected; given a valid token and a different `x-dev-user-id`, then the token's user is used.
-- [ ] `GET /health.check` works without a token.
-- [ ] Given a `savor.keepwarm` event, then the handler returns without opening a database connection.
-- [ ] Handler unit tests cover: claims to `userId`, missing claims, the keepwarm event, and the dev header being ignored.
-- [ ] A push to `main` that changes the API deploys a new image, runs migrations and passes the smoke check, with no long-lived AWS credentials in GitHub.
-- [ ] Given a failing migration, then the Lambda keeps running the previous image.
-- [ ] The deploy role cannot do anything outside its listed permissions (checked by reading the policy, and by one denied action in the plan review).
-- [ ] `terraform fmt -check` and `terraform validate` pass in CI for both folders; `terraform plan` on `infra/app` shows no changes after apply.
-- [ ] The budget alarm exists, and its email subscription is confirmed.
-- [ ] The smoke script passes against the deployed API.
-- [ ] README documents bootstrap, first deploy, creating a test user, running the smoke test, and tearing everything down.
-- [ ] `pnpm typecheck`, `pnpm lint` and `pnpm test` pass locally and in CI.
+- [x] Given no token, when calling `sync.push` or `sync.pull` on the deployed API, then the response is 401 and the Lambda is not invoked. Verified: smoke test (401s); post-deploy Lambda log check (5 invocations for the smoke run's 5 authorized calls).
+- [x] Given a valid token for user A, when A pushes and pulls, then A gets back what A pushed. Verified: smoke test.
+- [x] Given valid tokens for users A and B, then B's pull never returns A's data. Verified: smoke test.
+- [x] Given a request with `x-dev-user-id` but no token, then it is rejected; given a valid token and a different `x-dev-user-id`, then the token's user is used. Verified: smoke test; handler unit tests.
+- [x] `GET /health.check` works without a token. Verified: smoke test; deploy smoke check.
+- [x] Given a `savor.keepwarm` event, then the handler returns without opening a database connection. Verified: handler unit tests; post-deploy keepwarm invoke returned `{"ok":true}`.
+- [x] Handler unit tests cover: claims to `userId`, missing claims, the keepwarm event, and the dev header being ignored. Verified: `apps/api/src/handler.test.ts`, 11 tests.
+- [x] A push to `main` that changes the API deploys a new image, runs migrations and passes the smoke check, with no long-lived AWS credentials in GitHub. Verified: deploy from push of 8700c74 (OIDC sign-in; GitHub holds only the `AWS_DEPLOY_ROLE_ARN` and `SAVOR_API_URL` variables, no secrets).
+- [x] Given a failing migration, then the Lambda keeps running the previous image. Verified: failing-migration run f345445 stopped at the migrations; the function kept image 2b45e90.
+- [x] The deploy role cannot do anything outside its listed permissions (checked by reading the policy, and by one denied action in the plan review). Verified: policy review; post-deploy `simulate-principal-policy` check (all implicitDeny).
+- [x] `terraform fmt -check` and `terraform validate` pass in CI for both folders; `terraform plan` on `infra/app` shows no changes after apply. Verified: CI on every push; post-deploy plan with `-detailed-exitcode` exited 0.
+- [x] The budget alarm exists, and its email subscription is confirmed. Verified: created by the bootstrap apply; subscription confirmed by the developer.
+- [x] The smoke script passes against the deployed API. Verified: smoke test after the first deploy.
+- [x] README documents bootstrap, first deploy, creating a test user, running the smoke test, and tearing everything down. Verified: README "Deploying" section, followed for the first deploy.
+- [x] `pnpm typecheck`, `pnpm lint` and `pnpm test` pass locally and in CI. Verified: locally before each commit; CI on every push.
 
 ## Out of scope
 
