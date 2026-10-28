@@ -32,6 +32,9 @@ importers:
         specifier: ^4.6.7
         version: 4.6.7
     devDependencies:
+      '@aws-sdk/client-cognito-identity-provider':
+        specifier: ^3.1157.0
+        version: 3.1157.0
       '@eslint/js':
         specifier: ^9.39.5
         version: 9.39.5
@@ -228,6 +231,10 @@ packages:
 
   '@asamuzakjp/css-color@3.2.0':
     resolution: {integrity: sha512-K1A6z8tS3XsmCMM86xoWdn7Fkdn9m6RSVtocUrJYIwZnFVkng/PvkEoWtOWmP+Scc6saYWHWZYbndEEXxl24jw==}
+
+  '@aws-sdk/client-cognito-identity-provider@3.1157.0':
+    resolution: {integrity: sha512-EYIpSeeSWxmMRm42fxjOgZnHz6+SWg8/0+cKjGurcScEbSKL2OHdx7AdJ4N6tktXT2lCjbcdafkgX462OcuC5A==}
+    engines: {node: '>=20.0.0'}
 
   '@aws-sdk/client-secrets-manager@3.1157.0':
     resolution: {integrity: sha512-RIQXEf7pwRJqT816d/JdR2hVkFAMXHzzbPzV3XRBRS2aJEH9z3JBXUV8TBDG0N0rWLvLcJQOvFD80cjMx8Xg4A==}
@@ -6005,6 +6012,17 @@ snapshots:
       '@csstools/css-parser-algorithms': 3.0.5(@csstools/css-tokenizer@3.0.4)
       '@csstools/css-tokenizer': 3.0.4
       lru-cache: 10.4.3
+
+  '@aws-sdk/client-cognito-identity-provider@3.1157.0':
+    dependencies:
+      '@aws-sdk/core': 3.978.6
+      '@aws-sdk/credential-provider-node': 3.972.89
+      '@aws-sdk/types': 3.975.0
+      '@smithy/core': 3.37.0
+      '@smithy/fetch-http-handler': 5.8.0
+      '@smithy/node-http-handler': 4.13.0
+      '@smithy/types': 4.19.0
+      tslib: 2.8.1
 
   '@aws-sdk/client-secrets-manager@3.1157.0':
     dependencies:
