@@ -4,6 +4,11 @@ on:
   push:
     branches: [main]
   pull_request:
+  # Deploys the API again; only main's can assume the deploy role
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 jobs:
   check:
@@ -54,3 +59,99 @@ jobs:
       # No backend and no credentials: validate only checks the configuration
       - run: terraform init -backend=false -input=false
       - run: terraform validate
+
+  # Whether this push to main changed what goes into the API image
+  changes:
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-26.04
+    outputs:
+      api: ${{ steps.diff.outputs.api }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - id: diff
+        env:
+          BEFORE: ${{ github.event.before }}
+        run: |
+          # Manual runs always deploy, and so does a push whose base is unknown
+          if [ "$GITHUB_EVENT_NAME" != push ] || ! git cat-file -e "$BEFORE^{commit}" 2>/dev/null; then
+            echo "api=true" >> "$GITHUB_OUTPUT"
+          elif git diff --quiet "$BEFORE" "$GITHUB_SHA" -- apps/api packages/shared pnpm-lock.yaml .github/workflows/ci.yml; then
+            echo "api=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "api=true" >> "$GITHUB_OUTPUT"
+          fi
+
+  # Deploys exactly the commit the checks above passed on (spec 004). Steps
+  # run in order and stop at the first failure, so a failed migration leaves
+  # the function on its previous image.
+  deploy:
+    needs: [check, terraform, changes]
+    if: needs.changes.outputs.api == 'true'
+    runs-on: ubuntu-26.04-arm
+    permissions:
+      contents: read
+      id-token: write
+    concurrency:
+      group: deploy
+      cancel-in-progress: false
+    env:
+      AWS_REGION: eu-central-1
+      ECR_REPOSITORY: savor-api
+      FUNCTION_NAME: savor-api
+      DATABASE_SECRET_ID: savor/database
+    steps:
+      - uses: actions/checkout@v7
+      - uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      - id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+      - uses: docker/setup-buildx-action@v4
+
+      # Lambda needs one platform and no attestation manifests
+      - uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: apps/api/Dockerfile
+          platforms: linux/arm64
+          provenance: false
+          sbom: false
+          push: true
+          tags: ${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile --filter @savor/api...
+
+      # The direct (unpooled) url, since Neon's pooler runs in transaction mode
+      - name: Run migrations on Neon
+        run: |
+          url=$(aws secretsmanager get-secret-value --secret-id "$DATABASE_SECRET_ID" \
+            --query SecretString --output text | jq -r .migrationUrl)
+          echo "::add-mask::$url"
+          echo "::add-mask::$(node -e 'console.log(new URL(process.argv[1]).password)' "$url")"
+          DATABASE_URL="$url" pnpm --filter @savor/api db:migrate
+
+      - name: Update the function
+        env:
+          IMAGE: ${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
+        run: |
+          aws lambda update-function-code --function-name "$FUNCTION_NAME" \
+            --image-uri "$IMAGE" --query '{image: ImageUri, status: LastUpdateStatus}'
+          aws lambda wait function-updated --function-name "$FUNCTION_NAME"
+          aws lambda wait function-active --function-name "$FUNCTION_NAME"
+
+      - name: Smoke check
+        env:
+          SAVOR_API_URL: ${{ vars.SAVOR_API_URL }}
+        run: |
+          curl -fsS --retry 3 --retry-all-errors "${SAVOR_API_URL%/}/health.check" \
+            | jq -e '.result.data.ok == true'
