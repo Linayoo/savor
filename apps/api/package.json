@@ -7,6 +7,7 @@
     "dev": "NODE_ENV=development tsx watch src/dev.ts",
     "build": "tsx scripts/build.ts",
     "db:generate": "drizzle-kit generate",
+    "db:migrate": "tsx scripts/migrate.ts",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "vitest run"

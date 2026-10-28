@@ -5,7 +5,7 @@ import pg from "pg";
 
 const migrationsFolder = path.join(import.meta.dirname, "../../drizzle");
 
-// Applies the checked-in migrations; used for local development and tests
+// Applies the checked-in migrations: for local development, tests and deploys
 export async function migrateDatabase(url: string) {
   const pool = new pg.Pool({ connectionString: url });
   try {
