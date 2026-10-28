@@ -3,8 +3,8 @@ import { createContextFactory } from "./context";
 import type { Db } from "./db/client";
 import { appRouter } from "./router";
 
-// tRPC's standalone HTTP server for local development. The Lambda entry
-// point comes with deployment in spec 004.
+// tRPC's standalone HTTP server for local development. In AWS, lambda.ts is
+// the entry point.
 export function createServer(db: Db) {
   return createHTTPServer({
     router: appRouter,

@@ -3,7 +3,8 @@ import type { Db } from "./db/client";
 
 export type Context = {
   db: Db;
-  // Until spec 004 this comes from the dev-only stand-in in context.ts
+  // The verified token's subject in AWS (handler.ts), the dev-only stand-in
+  // locally (context.ts)
   userId: string | null;
 };
 
