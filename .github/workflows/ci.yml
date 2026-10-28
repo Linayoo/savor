@@ -36,3 +36,21 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm lint
       - run: pnpm test
+
+  terraform:
+    runs-on: ubuntu-26.04
+    strategy:
+      matrix:
+        dir: [infra/bootstrap, infra/app]
+    defaults:
+      run:
+        working-directory: ${{ matrix.dir }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: 1.16.5
+      - run: terraform fmt -check -recursive
+      # No backend and no credentials: validate only checks the configuration
+      - run: terraform init -backend=false -input=false
+      - run: terraform validate
