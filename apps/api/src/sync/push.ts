@@ -20,20 +20,9 @@ export function push(
   input: PushInput,
 ): Promise<PushOutput> {
   return db.transaction(async (tx) => {
-    // Lock the user's version so concurrent pushes take turns
-    await tx
-      .insert(userSyncState)
-      .values({ userId, version: 0 })
-      .onConflictDoNothing();
-    const [state] = await tx
-      .select()
-      .from(userSyncState)
-      .where(eq(userSyncState.userId, userId))
-      .for("update");
-
+    let version = await lockVersion(tx, userId);
     await rejectOtherUsersRows(tx, userId, input);
 
-    let version = state.version;
     for (const change of input.moments) {
       version += 1;
       await tx
@@ -71,12 +60,31 @@ export function push(
         });
     }
 
-    await tx
-      .update(userSyncState)
-      .set({ version })
-      .where(eq(userSyncState.userId, userId));
+    await saveVersion(tx, userId, version);
     return { version };
   });
+}
+
+// Locks the user's version for the rest of the transaction, so concurrent
+// writes take turns, and returns it
+export async function lockVersion(tx: Db, userId: string): Promise<number> {
+  await tx
+    .insert(userSyncState)
+    .values({ userId, version: 0 })
+    .onConflictDoNothing();
+  const [state] = await tx
+    .select()
+    .from(userSyncState)
+    .where(eq(userSyncState.userId, userId))
+    .for("update");
+  return state.version;
+}
+
+export async function saveVersion(tx: Db, userId: string, version: number) {
+  await tx
+    .update(userSyncState)
+    .set({ version })
+    .where(eq(userSyncState.userId, userId));
 }
 
 // A push may not touch another user's moments or photos, or attach a photo
