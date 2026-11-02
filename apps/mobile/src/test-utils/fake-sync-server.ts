@@ -1,4 +1,6 @@
 import {
+  momentChangeSchema,
+  photoChangeSchema,
   pullInputSchema,
   pushInputSchema,
   type MomentChange,
@@ -56,9 +58,13 @@ export class FakeSyncServer {
       .map(({ userId: _, version: __, ...m }) => m);
   }
 
-  // Adds a server-side change directly, as another device would
+  // Adds changes directly, as other devices' pushes would, without the
+  // per-push limit
   seed(userId: string, input: PushInput) {
-    this.apply(userId, pushInputSchema.parse(input));
+    this.apply(userId, {
+      moments: input.moments.map((m) => momentChangeSchema.parse(m)),
+      photos: input.photos.map((p) => photoChangeSchema.parse(p)),
+    });
   }
 
   private takeFault(method: "push" | "pull") {
