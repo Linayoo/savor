@@ -75,20 +75,20 @@ export function authErrorMessage(error: unknown): FieldError {
   if (/^(LimitExceeded|TooManyRequests|TooManyFailedAttempts)/.test(name)) {
     return tooManyTries;
   }
-  if (__DEV__) logUnknown(error);
+  if (__DEV__) logAuthError("unknown error", error);
   return { field: "form", message: "Something went wrong. Please try again." };
 }
 
-// Development only: an unmapped error is printed to the Metro terminal, so it
-// can be given its own message. Amplify wraps service errors, so the
-// underlying one is printed too.
-function logUnknown(error: unknown) {
+// Development only: prints an auth error's name and message to the Metro
+// terminal. Amplify wraps service errors, so the underlying one is printed
+// too. Cases that share a name (NotAuthorizedException) differ by message.
+export function logAuthError(context: string, error: unknown) {
   if (!(error instanceof Error)) {
-    console.log("[auth] unknown error (not an Error):", error);
+    console.log(`[auth] ${context} (not an Error):`, error);
     return;
   }
   const underlying = (error as { underlyingError?: unknown }).underlyingError;
-  console.log(`[auth] unknown error: ${error.name}: ${error.message}`);
+  console.log(`[auth] ${context}: ${error.name}: ${error.message}`);
   if (underlying instanceof Error) {
     console.log(
       `[auth]   underlying: ${underlying.name}: ${underlying.message}`,

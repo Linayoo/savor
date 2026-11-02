@@ -56,6 +56,7 @@ describe("authErrorMessage", () => {
   });
 
   it("never shows the raw service message", () => {
+    jest.spyOn(console, "log").mockImplementation(() => {});
     for (const name of [
       "UsernameExistsException",
       "NotAuthorizedException",
@@ -68,6 +69,7 @@ describe("authErrorMessage", () => {
     expect(authErrorMessage("not even an error").message).toBe(
       "Something went wrong. Please try again.",
     );
+    jest.restoreAllMocks();
   });
 });
 
@@ -87,7 +89,8 @@ describe("unknown errors in development", () => {
     log.mockRestore();
   });
 
-  it("stays quiet for errors that have a message", () => {
+  // auth.ts has already printed every failed action
+  it("prints nothing more for errors that have a message", () => {
     const log = jest.spyOn(console, "log").mockImplementation(() => {});
 
     authErrorMessage(awsError("CodeMismatchException"));

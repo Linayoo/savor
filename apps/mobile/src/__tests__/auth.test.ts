@@ -16,13 +16,17 @@ jest.mock("aws-amplify/auth", () => ({
   autoSignIn: jest.fn(),
   getCurrentUser: jest.fn(),
   fetchAuthSession: jest.fn(),
+  signOut: jest.fn(),
 }));
 
 const auth = jest.mocked(amplifyAuth);
 const awsError = (name: string) => Object.assign(new Error(name), { name });
 
+let log: jest.SpyInstance;
+
 beforeEach(() => {
   jest.resetAllMocks();
+  log = jest.spyOn(console, "log").mockImplementation(() => {});
   auth.getCurrentUser.mockResolvedValue({
     userId: "sub-a",
     username: "sub-a",
@@ -57,6 +61,32 @@ describe("signIn", () => {
     expect(await signIn("ana@example.com", "Ramen with Ana 2026")).toEqual({
       status: "confirmSignUp",
     });
+  });
+});
+
+describe("development logging", () => {
+  it("prints every failed action with the error's name and message", async () => {
+    auth.signIn.mockRejectedValue(
+      Object.assign(new Error("Password attempts exceeded"), {
+        name: "NotAuthorizedException",
+      }),
+    );
+
+    await expect(signIn("ana@example.com", "x")).rejects.toThrow();
+
+    expect(log).toHaveBeenCalledWith(
+      "[auth] signIn failed: NotAuthorizedException: Password attempts exceeded",
+    );
+  });
+
+  it("stays quiet when nobody is signed in, the normal case", async () => {
+    auth.getCurrentUser.mockRejectedValue(
+      awsError("UserUnAuthenticatedException"),
+    );
+
+    await currentSession();
+
+    expect(log).not.toHaveBeenCalled();
   });
 });
 
@@ -150,3 +180,5 @@ describe("getAccessToken", () => {
     });
   });
 });
+
+afterAll(() => log.mockRestore());

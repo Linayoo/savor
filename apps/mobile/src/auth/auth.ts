@@ -1,6 +1,7 @@
 import * as amplify from "aws-amplify/auth";
 import { SyncError } from "../sync/api";
 import { configureAuth } from "./amplify";
+import { logAuthError } from "./errors";
 
 // The account actions the screens need, on top of Amplify Auth v6. Errors
 // are Amplify's; the screens turn them into words with authErrorMessage.
@@ -21,7 +22,11 @@ export async function currentSession(): Promise<Session | null> {
       userId: user.userId,
       email: user.signInDetails?.loginId ?? user.username,
     };
-  } catch {
+  } catch (error) {
+    // Nobody signed in is the normal case, not an error
+    if (__DEV__ && (error as Error)?.name !== "UserUnAuthenticatedException") {
+      logAuthError("currentSession failed", error);
+    }
     return null;
   }
 }
@@ -32,28 +37,32 @@ export async function signIn(
 ): Promise<
   { status: "signedIn"; session: Session } | { status: "confirmSignUp" }
 > {
-  configureAuth();
-  const { nextStep } = await amplify.signIn({
-    username: normalize(email),
-    password,
-    options: { authFlowType },
+  return run("signIn", async () => {
+    configureAuth();
+    const { nextStep } = await amplify.signIn({
+      username: normalize(email),
+      password,
+      options: { authFlowType },
+    });
+    if (nextStep.signInStep === "CONFIRM_SIGN_UP") {
+      return { status: "confirmSignUp" };
+    }
+    return { status: "signedIn", session: await signedInSession() };
   });
-  if (nextStep.signInStep === "CONFIRM_SIGN_UP") {
-    return { status: "confirmSignUp" };
-  }
-  return { status: "signedIn", session: await signedInSession() };
 }
 
 // Sends the 6-digit code by email
 export async function signUp(email: string, password: string) {
-  configureAuth();
-  await amplify.signUp({
-    username: normalize(email),
-    password,
-    options: {
-      userAttributes: { email: normalize(email) },
-      autoSignIn: { authFlowType },
-    },
+  return run("signUp", async () => {
+    configureAuth();
+    await amplify.signUp({
+      username: normalize(email),
+      password,
+      options: {
+        userAttributes: { email: normalize(email) },
+        autoSignIn: { authFlowType },
+      },
+    });
   });
 }
 
@@ -64,24 +73,30 @@ export async function confirmSignUp(
   email: string,
   code: string,
 ): Promise<Session | null> {
-  configureAuth();
-  const { nextStep } = await amplify.confirmSignUp({
-    username: normalize(email),
-    confirmationCode: code.trim(),
+  return run("confirmSignUp", async () => {
+    configureAuth();
+    const { nextStep } = await amplify.confirmSignUp({
+      username: normalize(email),
+      confirmationCode: code.trim(),
+    });
+    if (nextStep.signUpStep !== "COMPLETE_AUTO_SIGN_IN") return null;
+    await amplify.autoSignIn();
+    return signedInSession();
   });
-  if (nextStep.signUpStep !== "COMPLETE_AUTO_SIGN_IN") return null;
-  await amplify.autoSignIn();
-  return signedInSession();
 }
 
 export async function resendSignUpCode(email: string) {
-  configureAuth();
-  await amplify.resendSignUpCode({ username: normalize(email) });
+  return run("resendSignUpCode", async () => {
+    configureAuth();
+    await amplify.resendSignUpCode({ username: normalize(email) });
+  });
 }
 
 export async function requestPasswordReset(email: string) {
-  configureAuth();
-  await amplify.resetPassword({ username: normalize(email) });
+  return run("requestPasswordReset", async () => {
+    configureAuth();
+    await amplify.resetPassword({ username: normalize(email) });
+  });
 }
 
 export async function confirmPasswordReset(
@@ -89,18 +104,22 @@ export async function confirmPasswordReset(
   code: string,
   newPassword: string,
 ) {
-  configureAuth();
-  await amplify.confirmResetPassword({
-    username: normalize(email),
-    confirmationCode: code.trim(),
-    newPassword,
+  return run("confirmPasswordReset", async () => {
+    configureAuth();
+    await amplify.confirmResetPassword({
+      username: normalize(email),
+      confirmationCode: code.trim(),
+      newPassword,
+    });
   });
 }
 
 // Signs out on this phone only; the moments stay
 export async function signOut() {
-  configureAuth();
-  await amplify.signOut();
+  return run("signOut", async () => {
+    configureAuth();
+    await amplify.signOut();
+  });
 }
 
 // For the API: the current access token, which Amplify refreshes when it
@@ -111,6 +130,7 @@ export async function getAccessToken(): Promise<string> {
   try {
     session = await amplify.fetchAuthSession();
   } catch (error) {
+    if (__DEV__) logAuthError("token refresh failed", error);
     const name = error instanceof Error ? error.name : "";
     throw new SyncError(
       name === "NotAuthorizedException" ? "unauthorized" : "unavailable",
@@ -125,4 +145,15 @@ async function signedInSession(): Promise<Session> {
   const session = await currentSession();
   if (!session) throw new Error("Signed in, but no user is stored");
   return session;
+}
+
+// Every account action goes through here. In development, a failure is
+// printed to the Metro terminal before the screen turns it into words.
+async function run<T>(action: string, task: () => Promise<T>): Promise<T> {
+  try {
+    return await task();
+  } catch (error) {
+    if (__DEV__) logAuthError(`${action} failed`, error);
+    throw error;
+  }
 }
