@@ -4,6 +4,7 @@ import {
   currentSession,
   getAccessToken,
   signIn,
+  signOut,
   signUp,
 } from "@/auth/auth";
 import { SyncError } from "@/sync/api";
@@ -27,12 +28,28 @@ let log: jest.SpyInstance;
 beforeEach(() => {
   jest.resetAllMocks();
   log = jest.spyOn(console, "log").mockImplementation(() => {});
-  auth.getCurrentUser.mockResolvedValue({
-    userId: "sub-a",
-    username: "sub-a",
-    signInDetails: { loginId: "ana@example.com" },
+  // Nobody is signed in when an action starts; Ana is once it signed in
+  auth.getCurrentUser
+    .mockRejectedValueOnce(awsError("UserUnAuthenticatedException"))
+    .mockResolvedValue(anaUser);
+  auth.signIn.mockResolvedValue({
+    isSignedIn: true,
+    nextStep: { signInStep: "DONE" },
   });
 });
+
+const anaUser = {
+  userId: "sub-a",
+  username: "sub-a",
+  signInDetails: { loginId: "ana@example.com" },
+};
+
+const deferred = () => {
+  let resolve = () => {};
+  const promise = new Promise<void>((r) => (resolve = r));
+  return { promise, resolve };
+};
+const flush = () => new Promise((r) => setTimeout(r, 0));
 
 describe("signIn", () => {
   it("signs in with SRP and returns who is signed in", async () => {
@@ -62,6 +79,52 @@ describe("signIn", () => {
       status: "confirmSignUp",
     });
   });
+});
+
+// Amplify refuses to sign in while a user is still signed in, and a sign-out
+// still finishing would clear the new session's tokens
+describe("one account action at a time", () => {
+  it("waits for a sign-out that's still finishing before signing in", async () => {
+    const out = deferred();
+    auth.signOut.mockReturnValue(out.promise);
+
+    const signingOut = signOut();
+    const signingIn = signIn("ana@example.com", "Ramen with Ana 2026");
+    await flush();
+    expect(auth.signIn).not.toHaveBeenCalled();
+
+    out.resolve();
+    await signingOut;
+    await signingIn;
+    expect(auth.signIn).toHaveBeenCalledTimes(1);
+  });
+
+  it("goes on after an action failed", async () => {
+    auth.signOut.mockRejectedValue(awsError("SomethingNewException"));
+
+    await expect(signOut()).rejects.toThrow();
+    await signIn("ana@example.com", "Ramen with Ana 2026");
+
+    expect(auth.signIn).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    ["signIn", () => signIn("ana@example.com", "Ramen with Ana 2026")],
+    ["signUp", () => signUp("ana@example.com", "Ramen with Ana 2026")],
+  ])(
+    "%s first signs out a user Amplify still holds, like an account the phone refused",
+    async (_, action) => {
+      auth.getCurrentUser.mockReset().mockResolvedValue(anaUser);
+
+      await action();
+
+      expect(auth.signOut).toHaveBeenCalledTimes(1);
+      const started =
+        auth.signIn.mock.invocationCallOrder[0] ??
+        auth.signUp.mock.invocationCallOrder[0];
+      expect(auth.signOut.mock.invocationCallOrder[0]).toBeLessThan(started);
+    },
+  );
 });
 
 describe("development logging", () => {

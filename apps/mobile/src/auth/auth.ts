@@ -39,6 +39,7 @@ export async function signIn(
 > {
   return run("signIn", async () => {
     configureAuth();
+    await signOutLeftoverUser();
     const { nextStep } = await amplify.signIn({
       username: normalize(email),
       password,
@@ -55,6 +56,7 @@ export async function signIn(
 export async function signUp(email: string, password: string) {
   return run("signUp", async () => {
     configureAuth();
+    await signOutLeftoverUser();
     await amplify.signUp({
       username: normalize(email),
       password,
@@ -147,13 +149,31 @@ async function signedInSession(): Promise<Session> {
   return session;
 }
 
-// Every account action goes through here. In development, a failure is
-// printed to the Metro terminal before the screen turns it into words.
-async function run<T>(action: string, task: () => Promise<T>): Promise<T> {
-  try {
-    return await task();
-  } catch (error) {
-    if (__DEV__) logAuthError(`${action} failed`, error);
-    throw error;
-  }
+// Every account action goes through here, one at a time: a sign-in that
+// started while a sign-out was still finishing would be refused by Amplify,
+// or lose its tokens to it. In development, a failure is printed to the
+// Metro terminal before the screen turns it into words.
+let queue: Promise<unknown> = Promise.resolve();
+
+function run<T>(action: string, task: () => Promise<T>): Promise<T> {
+  const next = queue.then(async () => {
+    try {
+      return await task();
+    } catch (error) {
+      if (__DEV__) logAuthError(`${action} failed`, error);
+      throw error;
+    }
+  });
+  queue = next.catch(() => undefined);
+  return next;
+}
+
+// A user Amplify still holds, such as an account the phone refused whose
+// sign-out failed, would make the next sign-in fail
+async function signOutLeftoverUser() {
+  const signedIn = await amplify.getCurrentUser().then(
+    () => true,
+    () => false,
+  );
+  if (signedIn) await amplify.signOut();
 }
