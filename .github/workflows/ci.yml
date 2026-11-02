@@ -41,6 +41,9 @@ jobs:
       - run: pnpm typecheck
       - run: pnpm lint
       - run: pnpm test
+      # Bundles the app's JavaScript for iOS; native builds need Xcode and
+      # happen locally (ADR 0006)
+      - run: pnpm --filter @savor/mobile exec expo export --platform ios --output-dir "$RUNNER_TEMP/ios-export"
 
   terraform:
     runs-on: ubuntu-26.04
