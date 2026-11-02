@@ -20,16 +20,16 @@ All moments look the same in the timeline, so a meal, a film and a walk are hard
 
 ## Kinds
 
-| Key | Label | Ionicons icon |
-|---|---|---|
-| meal | Meal | restaurant-outline |
-| film | Film | film-outline |
-| book | Book | book-outline |
-| nature | Nature | leaf-outline |
-| friends | Friends | people-outline |
-| body | Body | body-outline |
-| phrase | Phrase | chatbubble-ellipses-outline |
-| (none) | – | sparkles-outline |
+| Key     | Label   | Ionicons icon               |
+| ------- | ------- | --------------------------- |
+| meal    | Meal    | restaurant-outline          |
+| film    | Film    | film-outline                |
+| book    | Book    | book-outline                |
+| nature  | Nature  | leaf-outline                |
+| friends | Friends | people-outline              |
+| body    | Body    | body-outline                |
+| phrase  | Phrase  | chatbubble-ellipses-outline |
+| (none)  | –       | sparkles-outline            |
 
 ## Data model
 

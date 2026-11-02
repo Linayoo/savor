@@ -86,12 +86,10 @@ describe("FakeSyncServer", () => {
     const server = new FakeSyncServer();
 
     await expect(
-      server
-        .api("a")
-        .push({
-          moments: Array.from({ length: 101 }, () => moment()),
-          photos: [],
-        }),
+      server.api("a").push({
+        moments: Array.from({ length: 101 }, () => moment()),
+        photos: [],
+      }),
     ).rejects.toMatchObject({ kind: "rejected" });
   });
 

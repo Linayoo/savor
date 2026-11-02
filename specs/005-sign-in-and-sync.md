@@ -58,12 +58,14 @@ Rules:
 Lives in `apps/mobile/src/sync/`, with no React imports. It takes the database (`AppDb`), an API client, and a clock, so it runs unchanged in Jest on better-sqlite3 with a fake API.
 
 **Push**
+
 1. Read pending moments, oldest `updated_at` first, in batches of up to 100.
 2. Send each batch with `sync.push` (schemas from `@savor/shared`, photos array empty).
 3. On success, in one synchronous transaction, clear `pending` only on rows whose `updated_at` still equals the value that was sent. A row changed during the push stays pending and goes in the next push.
 4. A `CONFLICT` response stops the sync and is reported (it means the data belongs to another account; it should never happen in normal use).
 
 **Pull**
+
 1. Call `sync.pull` from `lastPulledVersion`, page by page, until `hasMore` is false.
 2. Apply each page in one synchronous transaction, together with the new `lastPulledVersion`:
    - A pulled moment that doesn't exist locally is inserted (not pending).
@@ -100,6 +102,7 @@ No changes. The phone uses `sync.push` and `sync.pull` from spec 003 as deployed
 ## Acceptance criteria
 
 Account
+
 - [x] Given no account, when I create one with a valid email and password and enter the emailed code, then I'm signed in. Verified: account-screens tests; manual run on two simulators.
 - [x] Given a password that breaks the rules or a wrong code, then I see a plain message next to the field and nothing else changes. Verified: account-screens and auth-errors tests (including NotAuthorizedException by message); manual run.
 - [x] Given I forgot my password, when I request a code and set a new password, then I can sign in with it. Verified: account-screens test; manual run, including repeated reset codes.
@@ -107,11 +110,13 @@ Account
 - [x] Given I'm signed out, then I can keep, edit and delete moments exactly as before. Verified: sync-provider test (no API calls while signed out); earlier timeline tests.
 
 Ownership
+
 - [x] Given a phone with moments and no owner, when I sign in for the first time, then those moments are pushed to my account. Verified: pending-migration and sync-provider tests; manual run (moments kept before signing in arrived on simulator 2).
 - [x] Given I sign out, then my moments stay on the phone and syncing stops. Verified: sync-provider tests, including sign-out during a sync; manual run.
 - [x] Given the phone belongs to account A, when I sign in as B, then sign-in is refused with the ownership message and nothing is pushed or pulled. Verified: ownership, account-screens (sign-in and create account) and sync-provider tests; manual run.
 
 Sync
+
 - [x] Given two devices signed in to the same account, when I keep a moment with a kind on one, then after a sync it appears on the other with the same text, kind and date. Verified: sync-two-devices test; manual run.
 - [x] Given a moment edited on device 1, then device 2 shows the new text and kind after its next sync. Verified: sync-two-devices test; manual run.
 - [x] Given a moment deleted on device 1, then it disappears from device 2 after its next sync, and device 2 deletes any local photo files for it. Verified: sync-two-devices and sync-pull tests; manual run.
@@ -126,12 +131,14 @@ Sync
 - [x] A moment with photos syncs its text and kind; its photos stay on the original device. Verified: sync-two-devices test.
 
 Quality
+
 - [x] Sync engine tests run on better-sqlite3 with a fake API that applies the server rules from spec 003, including two simulated devices syncing through one fake server. Verified: sync-engine, sync-push, sync-pull, sync-two-devices and fake-sync-server tests.
 - [x] Mutation check: removing the "still unchanged" condition after push, or the pending check on pull, makes a test fail. Verified: removing the guard failed two sync-push tests, removing the pending check failed one sync-pull test; both restored.
 - [x] `pnpm typecheck`, `pnpm lint` and `pnpm test` pass locally and in CI, and `expo export --platform ios` passes in CI without Xcode. Verified: locally and in CI run 41458414943 for e66b386, including the iOS export.
 - [x] Tokens are stored in `expo-secure-store`; a value the size of a real Cognito refresh token is stored and read back whole, and a failed write is reported, not swallowed. Verified: secure-storage tests (a 1,800-character refresh token in 1 KB chunks; write errors propagate); manual run.
 
 Manual (the development build on two iOS simulators as the two devices, no Apple account needed; the phone is optional)
+
 - [x] Create an account on simulator 1, see its existing moments appear on simulator 2 after signing in there. Verified: manual run on two simulators.
 - [x] Keep, edit and delete on each simulator and see the changes arrive on the other. Verified: manual run on two simulators.
 - [x] Take the Mac offline (the simulators share its connection), keep a moment on simulator 1, go back online, and see it arrive on simulator 2 without any action. Verified: manual run on two simulators.

@@ -34,6 +34,7 @@ Drizzle is pinned to the stable 0.45.x line.
   - scale to zero after 5 idle minutes, always on
 
   Running out of compute or egress suspends the compute until the next month; no data is deleted.
+
 - pgvector is available on every Neon plan, so it's ready for M6.
 - Postgres fits the data: relational, per-user queries, transactions for sync.
 - DynamoDB was rejected: sync queries ("everything changed since version N for this user") and later vector search are simpler in Postgres.

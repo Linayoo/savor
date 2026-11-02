@@ -20,41 +20,42 @@ SQLite through expo-sqlite (installed with `expo install`) and `drizzle-orm/expo
 
 `moments`
 
-| Column | Type | Notes |
-|---|---|---|
-| id | text, primary key | UUID generated on the device |
-| text | text, not null | may be empty when the moment has photos |
-| kind | text, nullable | one of the kinds from spec 001 |
-| created_at | integer, not null | ms since epoch |
-| updated_at | integer, not null | ms since epoch, set on every change |
+| Column     | Type              | Notes                                           |
+| ---------- | ----------------- | ----------------------------------------------- |
+| id         | text, primary key | UUID generated on the device                    |
+| text       | text, not null    | may be empty when the moment has photos         |
+| kind       | text, nullable    | one of the kinds from spec 001                  |
+| created_at | integer, not null | ms since epoch                                  |
+| updated_at | integer, not null | ms since epoch, set on every change             |
 | deleted_at | integer, nullable | ms since epoch; set instead of deleting the row |
 
 `moment_photos`
 
-| Column | Type | Notes |
-|---|---|---|
-| id | text, primary key | UUID generated on the device; later the S3 object id |
-| moment_id | text, not null | references moments.id |
-| file_name | text, not null | file name in the app's photos folder, or an old full `file://` path from before spec 001 |
-| position | integer, not null | order within the moment, from 0 |
-| created_at | integer, not null | |
-| updated_at | integer, not null | |
-| deleted_at | integer, nullable | |
+| Column     | Type              | Notes                                                                                    |
+| ---------- | ----------------- | ---------------------------------------------------------------------------------------- |
+| id         | text, primary key | UUID generated on the device; later the S3 object id                                     |
+| moment_id  | text, not null    | references moments.id                                                                    |
+| file_name  | text, not null    | file name in the app's photos folder, or an old full `file://` path from before spec 001 |
+| position   | integer, not null | order within the moment, from 0                                                          |
+| created_at | integer, not null |                                                                                          |
+| updated_at | integer, not null |                                                                                          |
+| deleted_at | integer, nullable |                                                                                          |
 
 Index on `moments(deleted_at, created_at)` for the timeline query.
 
 `app_meta`
 
-| Column | Type | Notes |
-|---|---|---|
-| key | text, primary key | e.g. `sqliteImported` |
-| value | text, not null | |
+| Column | Type              | Notes                 |
+| ------ | ----------------- | --------------------- |
+| key    | text, primary key | e.g. `sqliteImported` |
+| value  | text, not null    |                       |
 
 Small key-value table for app state that must change together with data in the same transaction.
 
 The `Moment` type the screens use stays the same shape (`id`, `text`, `photos`, `kind`, `createdAt`), so screens don't need to know about SQLite.
 
 Rules:
+
 - Every insert sets `created_at` and `updated_at`. Every update sets `updated_at`.
 - Delete sets `deleted_at` and `updated_at` on the moment and its photos, and deletes the photo files from the phone. Rows are never removed.
 - All reads exclude rows with `deleted_at` set.

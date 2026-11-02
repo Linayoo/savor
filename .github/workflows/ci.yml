@@ -40,6 +40,7 @@ jobs:
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
       - run: pnpm lint
+      - run: pnpm format:check
       - run: pnpm test
       # Bundles the app's JavaScript for iOS; native builds need Xcode and
       # happen locally (ADR 0006)

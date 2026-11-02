@@ -1,0 +1,13 @@
+# Generated
+pnpm-lock.yaml
+dist/
+coverage/
+apps/mobile/ios/
+apps/mobile/android/
+apps/mobile/.expo/
+apps/mobile/expo-env.d.ts
+apps/mobile/drizzle/
+apps/api/drizzle/
+.terraform/
+# Written by Icon Composer
+apps/mobile/assets/expo.icon/

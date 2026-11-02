@@ -133,7 +133,9 @@ describe("SecureTokenStorage", () => {
     await storage.removeItem(key);
 
     expect(await storage.getItem(key)).toBeNull();
-    expect([...mockStore.keys()].filter((k) => k !== "amplify-index")).toEqual([]);
+    expect([...mockStore.keys()].filter((k) => k !== "amplify-index")).toEqual(
+      [],
+    );
   });
 
   it("clears everything it stored, also after writes at the same time", async () => {

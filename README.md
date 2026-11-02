@@ -39,6 +39,8 @@ pnpm install
 pnpm mobile
 ```
 
+Code and docs are formatted with Prettier: `pnpm format` formats everything, and CI runs `pnpm format:check`. Expo sometimes rewrites `app.json` or `tsconfig.json` in its own style; `pnpm format` puts them back.
+
 ### Mobile app
 
 The app runs as a development build, not in Expo Go, because Amplify Auth needs its own native module ([ADR 0006](docs/adr/0006-development-build.md)). `ios/` and `android/` are generated and gitignored; native settings live in `apps/mobile/app.json`.
@@ -101,6 +103,7 @@ curl -G http://localhost:3000/sync.pull -H 'x-dev-user-id: ana' \
 The API runs on AWS in eu-central-1: a Lambda container image behind an API Gateway HTTP API, Cognito for sign-in, and Neon Postgres (ADRs 0002 to 0004, spec 004). Terraform manages all of it. Infrastructure is planned and applied by hand; code deploys from CI.
 
 You need:
+
 - Terraform 1.16.5 (`tfenv install 1.16.5`)
 - the AWS CLI, signed in to Savor's account (`export AWS_PROFILE=savor`)
 - Docker
@@ -111,6 +114,7 @@ You need:
 ### Bootstrap (once)
 
 `infra/bootstrap` holds what everything else needs first:
+
 - the state bucket
 - GitHub's OIDC provider and the deploy role
 - a 5 USD monthly budget
@@ -173,6 +177,7 @@ The Lambda needs an image before it can exist, so the first deploy runs from you
    ```
 
 From then on, a push to `main` that changes `apps/api`, `packages/shared`, the lockfile or the CI workflow deploys after the checks pass:
+
 - build and push the image tagged with the commit
 - run the migrations
 - update the function
@@ -213,6 +218,7 @@ pnpm --filter @savor/api smoke
 ```
 
 It checks five things:
+
 - calls without a valid token get 401
 - A gets back what A pushed
 - B's pull never contains A's moment

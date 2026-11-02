@@ -18,12 +18,14 @@ The sync API from spec 003 runs only on a laptop, with a development stand-in fo
 ## Infrastructure (Terraform, eu-central-1)
 
 `infra/bootstrap` (local state, applied once):
+
 - S3 bucket for Terraform state: versioned, encrypted, public access blocked, named `savor-tfstate-<account id>`. Locking with S3's native lock file (`use_lockfile`, GA since Terraform 1.11; no DynamoDB table).
 - GitHub OIDC identity provider and a deploy role that only this repository's `main` branch can assume (`sub` = `repo:Linayoo@103110270/savor@1434441712:ref:refs/heads/main`: the repository uses GitHub's immutable subjects, which carry the owner and repository ids, so a recreated repository with the same name can't deploy. Deploy jobs don't use a GitHub environment, which would change the subject). Bootstrap creates the role with its trust policy only; its permissions are attached in `infra/app`, next to the resources they name.
 - AWS Budget of 5 USD per month with email alerts at 80% and 100%. AWS Budgets verifies a new email recipient: the link must be opened within 12 hours while signed in to the account.
 - Personal values (alert email, Neon org id) go in a gitignored `terraform.tfvars`, with a committed `terraform.tfvars.example`.
 
 `infra/app` (remote state in the bucket):
+
 - **Neon:** project in AWS Frankfurt (`aws-eu-central-1`), managed with the community `kislerdm/neon` provider (0.18.0; the one Neon's docs point to, moving to `neondatabase/neon`, which isn't on the registry yet). Every project gets a default database and role; they are named `savor` through the project's `branch` block. History retention is 6 hours (the Free plan maximum; the provider's default of 24 hours fails). `org_id` is set, as Neon recommends. The API key comes from the `NEON_API_KEY` environment variable, never a file. The role password ends up in Terraform state, which is why the state bucket is encrypted and private. Neon Free has no deletion protection: destroying the project deletes the data.
 - **Secrets Manager:** one secret holding the Neon connection strings as JSON: `url` (pooled host, for the Lambda) and `migrationUrl` (direct host, since Neon's pooler runs in transaction mode and Neon advises direct connections for migrations).
 - **Cognito:** user pool (Essentials tier, the default, set explicitly) with email as username, email verification, a password policy, and deletion protection. One public app client (no secret) for the mobile app with SRP and refresh-token flows. The smoke test signs in with `ALLOW_ADMIN_USER_PASSWORD_AUTH`, which only works with IAM credentials, so the public app itself still can't use anything but SRP and refresh.
@@ -61,6 +63,7 @@ Terraform (1.16.5) and provider versions (`hashicorp/aws` 6.68.0, `kislerdm/neon
 - Runs a smoke check: `GET /health.check` returns `{ ok: true }` (tRPC's body: `{"result":{"data":{"ok":true}}}`).
 
 First deploy: the Lambda needs an image before it can exist, and the deploy job only exists once this spec's code is pushed. So the first deploy runs from the developer's machine, in an order the README documents:
+
 1. Apply `infra/bootstrap` and confirm the budget email.
 2. Apply only the ECR repository in `infra/app` (`-target`).
 3. Build and push the first image from the developer's machine.

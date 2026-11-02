@@ -17,6 +17,7 @@ The phone keeps moments in SQLite with UUIDs and tombstones (spec 002), but ther
 ## Packages
 
 **`packages/shared` (`@savor/shared`)**, TypeScript source consumed directly by the app and the API:
+
 - `momentKindSchema`: enum of the kind keys from spec 001. The app's `kinds.ts` keeps labels and icons but takes its keys and the `MomentKind` type from here.
 - `momentChangeSchema`: `id` (uuid), `text` (string, max 5000), `kind` (momentKind, nullable), `createdAt`, `updatedAt` (integer ms), `deletedAt` (integer ms, nullable).
 - `photoChangeSchema`: `id` (uuid), `momentId` (uuid), `position` (32-bit integer ≥ 0, matching the Postgres `integer` column), `createdAt`, `updatedAt`, `deletedAt`. No file name: the server identifies a photo by its id.
@@ -42,6 +43,7 @@ No foreign key from `moment_id` to `moments.id`: a push holds at most 100 items,
 ## Sync rules
 
 Push, in one interactive transaction:
+
 1. Lock the user's `user_sync_state` row (creating it at 0 if missing).
 2. Reject the whole push with `CONFLICT` if any moment or photo id in it already exists for a different user, or if a photo's `momentId` is a moment of a different user.
 3. For each change, in input order (moments before photos), assign the next version and upsert.
