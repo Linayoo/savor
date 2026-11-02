@@ -70,3 +70,29 @@ describe("authErrorMessage", () => {
     );
   });
 });
+
+describe("unknown errors in development", () => {
+  it("prints the name and message, and Amplify's underlying error, to Metro", () => {
+    const log = jest.spyOn(console, "log").mockImplementation(() => {});
+    const error = Object.assign(awsError("SomethingNewException", "details"), {
+      underlyingError: awsError("InnerException", "inner details"),
+    });
+
+    authErrorMessage(error);
+
+    expect(log.mock.calls.map((call) => call.join(" "))).toEqual([
+      "[auth] unknown error: SomethingNewException: details",
+      "[auth]   underlying: InnerException: inner details",
+    ]);
+    log.mockRestore();
+  });
+
+  it("stays quiet for errors that have a message", () => {
+    const log = jest.spyOn(console, "log").mockImplementation(() => {});
+
+    authErrorMessage(awsError("CodeMismatchException"));
+
+    expect(log).not.toHaveBeenCalled();
+    log.mockRestore();
+  });
+});
