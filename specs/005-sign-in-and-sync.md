@@ -1,6 +1,6 @@
 # 005: Sign-in and moment sync
 
-Status: approved
+Status: done
 
 ## Problem
 
@@ -100,42 +100,42 @@ No changes. The phone uses `sync.push` and `sync.pull` from spec 003 as deployed
 ## Acceptance criteria
 
 Account
-- [ ] Given no account, when I create one with a valid email and password and enter the emailed code, then I'm signed in.
-- [ ] Given a password that breaks the rules or a wrong code, then I see a plain message next to the field and nothing else changes.
-- [ ] Given I forgot my password, when I request a code and set a new password, then I can sign in with it.
-- [ ] Given I'm signed in and close and reopen the app, then I'm still signed in.
-- [ ] Given I'm signed out, then I can keep, edit and delete moments exactly as before.
+- [x] Given no account, when I create one with a valid email and password and enter the emailed code, then I'm signed in. Verified: account-screens tests; manual run on two simulators.
+- [x] Given a password that breaks the rules or a wrong code, then I see a plain message next to the field and nothing else changes. Verified: account-screens and auth-errors tests (including NotAuthorizedException by message); manual run.
+- [x] Given I forgot my password, when I request a code and set a new password, then I can sign in with it. Verified: account-screens test; manual run, including repeated reset codes.
+- [x] Given I'm signed in and close and reopen the app, then I'm still signed in. Verified: account-screens test; tokens in secure-store (secure-storage tests); manual run.
+- [x] Given I'm signed out, then I can keep, edit and delete moments exactly as before. Verified: sync-provider test (no API calls while signed out); earlier timeline tests.
 
 Ownership
-- [ ] Given a phone with moments and no owner, when I sign in for the first time, then those moments are pushed to my account.
-- [ ] Given I sign out, then my moments stay on the phone and syncing stops.
-- [ ] Given the phone belongs to account A, when I sign in as B, then sign-in is refused with the ownership message and nothing is pushed or pulled.
+- [x] Given a phone with moments and no owner, when I sign in for the first time, then those moments are pushed to my account. Verified: pending-migration and sync-provider tests; manual run (moments kept before signing in arrived on simulator 2).
+- [x] Given I sign out, then my moments stay on the phone and syncing stops. Verified: sync-provider tests, including sign-out during a sync; manual run.
+- [x] Given the phone belongs to account A, when I sign in as B, then sign-in is refused with the ownership message and nothing is pushed or pulled. Verified: ownership, account-screens (sign-in and create account) and sync-provider tests; manual run.
 
 Sync
-- [ ] Given two devices signed in to the same account, when I keep a moment with a kind on one, then after a sync it appears on the other with the same text, kind and date.
-- [ ] Given a moment edited on device 1, then device 2 shows the new text and kind after its next sync.
-- [ ] Given a moment deleted on device 1, then it disappears from device 2 after its next sync, and device 2 deletes any local photo files for it.
-- [ ] Given device 2 has an unsynced edit to a moment that device 1 deleted, when device 2 syncs, then the moment is deleted on device 2.
-- [ ] Given a moment edited while a push is in flight, then the edit stays pending and is pushed in the next sync.
-- [ ] Given I keep moments offline, when the connection returns, then they are pushed without any action from me.
-- [ ] Given more than 100 pending moments, then they are pushed in batches of at most 100, and all arrive.
-- [ ] Given more changes on the server than one pull page, then all pages are applied and `lastPulledVersion` ends at the highest version.
-- [ ] Given a pull page fails to apply, then none of its rows and not its version are saved, and the next sync retries it.
-- [ ] Given the API rejects a call (network error or the first call after a quiet period), then sync retries with backoff and the UI stays usable.
-- [ ] Given two sync triggers at once, then only one sync runs and one more is queued.
-- [ ] A moment with photos syncs its text and kind; its photos stay on the original device.
+- [x] Given two devices signed in to the same account, when I keep a moment with a kind on one, then after a sync it appears on the other with the same text, kind and date. Verified: sync-two-devices test; manual run.
+- [x] Given a moment edited on device 1, then device 2 shows the new text and kind after its next sync. Verified: sync-two-devices test; manual run.
+- [x] Given a moment deleted on device 1, then it disappears from device 2 after its next sync, and device 2 deletes any local photo files for it. Verified: sync-two-devices and sync-pull tests; manual run.
+- [x] Given device 2 has an unsynced edit to a moment that device 1 deleted, when device 2 syncs, then the moment is deleted on device 2. Verified: sync-two-devices and sync-pull tests.
+- [x] Given a moment edited while a push is in flight, then the edit stays pending and is pushed in the next sync. Verified: sync-push test (push held in flight).
+- [x] Given I keep moments offline, when the connection returns, then they are pushed without any action from me. Verified: sync-provider and sync-two-devices tests; manual run (Mac offline).
+- [x] Given more than 100 pending moments, then they are pushed in batches of at most 100, and all arrive. Verified: sync-push test (250 moments in pushes of 100, 100 and 50).
+- [x] Given more changes on the server than one pull page, then all pages are applied and `lastPulledVersion` ends at the highest version. Verified: sync-pull test (450 changes in pages of 200).
+- [x] Given a pull page fails to apply, then none of its rows and not its version are saved, and the next sync retries it. Verified: sync-pull test (a trigger aborts the page partway).
+- [x] Given the API rejects a call (network error or the first call after a quiet period), then sync retries with backoff and the UI stays usable. Verified: sync-engine tests (5 s, 30 s, 2 min, then 10 min; sync() never rejects).
+- [x] Given two sync triggers at once, then only one sync runs and one more is queued. Verified: sync-engine test.
+- [x] A moment with photos syncs its text and kind; its photos stay on the original device. Verified: sync-two-devices test.
 
 Quality
-- [ ] Sync engine tests run on better-sqlite3 with a fake API that applies the server rules from spec 003, including two simulated devices syncing through one fake server.
-- [ ] Mutation check: removing the "still unchanged" condition after push, or the pending check on pull, makes a test fail.
-- [ ] `pnpm typecheck`, `pnpm lint` and `pnpm test` pass locally and in CI, and `expo export --platform ios` passes in CI without Xcode.
-- [ ] Tokens are stored in `expo-secure-store`; a value the size of a real Cognito refresh token is stored and read back whole, and a failed write is reported, not swallowed.
+- [x] Sync engine tests run on better-sqlite3 with a fake API that applies the server rules from spec 003, including two simulated devices syncing through one fake server. Verified: sync-engine, sync-push, sync-pull, sync-two-devices and fake-sync-server tests.
+- [x] Mutation check: removing the "still unchanged" condition after push, or the pending check on pull, makes a test fail. Verified: removing the guard failed two sync-push tests, removing the pending check failed one sync-pull test; both restored.
+- [x] `pnpm typecheck`, `pnpm lint` and `pnpm test` pass locally and in CI, and `expo export --platform ios` passes in CI without Xcode. Verified: locally and in CI run 41458414943 for e66b386, including the iOS export.
+- [x] Tokens are stored in `expo-secure-store`; a value the size of a real Cognito refresh token is stored and read back whole, and a failed write is reported, not swallowed. Verified: secure-storage tests (a 1,800-character refresh token in 1 KB chunks; write errors propagate); manual run.
 
 Manual (the development build on two iOS simulators as the two devices, no Apple account needed; the phone is optional)
-- [ ] Create an account on simulator 1, see its existing moments appear on simulator 2 after signing in there.
-- [ ] Keep, edit and delete on each simulator and see the changes arrive on the other.
-- [ ] Take the Mac offline (the simulators share its connection), keep a moment on simulator 1, go back online, and see it arrive on simulator 2 without any action.
-- [ ] The Account screen shows the sync line, and nothing in the timeline nags or counts.
+- [x] Create an account on simulator 1, see its existing moments appear on simulator 2 after signing in there. Verified: manual run on two simulators.
+- [x] Keep, edit and delete on each simulator and see the changes arrive on the other. Verified: manual run on two simulators.
+- [x] Take the Mac offline (the simulators share its connection), keep a moment on simulator 1, go back online, and see it arrive on simulator 2 without any action. Verified: manual run on two simulators.
+- [x] The Account screen shows the sync line, and nothing in the timeline nags or counts. Verified: manual run on two simulators.
 
 ## Out of scope
 
