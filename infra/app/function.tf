@@ -13,6 +13,9 @@ resource "aws_lambda_function" "api" {
     variables = {
       NODE_ENV           = "production"
       DATABASE_SECRET_ID = aws_secretsmanager_secret.database.arn
+      PHOTOS_BUCKET      = aws_s3_bucket.photos.bucket
+      # AWS_REGION is reserved in Lambda
+      PHOTOS_BUCKET_REGION = aws_s3_bucket.photos.region
     }
   }
 
@@ -53,7 +56,8 @@ data "aws_iam_policy_document" "lambda_trust" {
   }
 }
 
-# Its own logs and its own secret, nothing else
+# Its own logs, its own secret and the photos, nothing else. The name
+# predates the photos; renaming would replace the policy.
 resource "aws_iam_role_policy" "api" {
   name   = "logs-and-database-secret"
   role   = aws_iam_role.api.id
@@ -71,5 +75,26 @@ data "aws_iam_policy_document" "api" {
     sid       = "ReadDatabaseSecret"
     actions   = ["secretsmanager:GetSecretValue"]
     resources = [aws_secretsmanager_secret.database.arn]
+  }
+
+  # Presigned URLs are signed with this role, so they can do no more than this
+  statement {
+    sid       = "PhotoObjects"
+    actions   = ["s3:PutObject", "s3:GetObject", "s3:DeleteObject"]
+    resources = ["${aws_s3_bucket.photos.arn}/users/*"]
+  }
+
+  # Lets HeadObject answer 404 for a photo that was never uploaded, instead
+  # of 403
+  statement {
+    sid       = "ListPhotoKeys"
+    actions   = ["s3:ListBucket"]
+    resources = [aws_s3_bucket.photos.arn]
+
+    condition {
+      test     = "StringLike"
+      variable = "s3:prefix"
+      values   = ["users/*"]
+    }
   }
 }

@@ -18,3 +18,8 @@ output "ecr_repository_url" {
 output "database_secret_arn" {
   value = aws_secretsmanager_secret.database.arn
 }
+
+output "photos_bucket" {
+  description = "For the manual photo checks"
+  value       = aws_s3_bucket.photos.bucket
+}
