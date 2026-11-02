@@ -12,9 +12,11 @@
     "scheme": "savor",
     "userInterfaceStyle": "automatic",
     "ios": {
+      "bundleIdentifier": "com.linayoo.savor",
       "icon": "./assets/expo.icon"
     },
     "android": {
+      "package": "com.linayoo.savor",
       "adaptiveIcon": {
         "backgroundColor": "#E6F4FE",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
