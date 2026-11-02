@@ -104,6 +104,24 @@ describe("Account screen", () => {
     expect(auth.signOut).toHaveBeenCalled();
     expect(getMeta(db, "ownerUserId")).toBe(ana.userId);
   });
+
+  it("says so when signing out fails, and stays signed in", async () => {
+    jest.spyOn(console, "log").mockImplementation(() => {});
+    const auth = fakeAuth({
+      users: [ana],
+      signedIn: { userId: ana.userId, email: ana.email },
+      signOutFails: true,
+    });
+    const user = await renderScreen(Account, auth);
+
+    await user.press(await screen.findByRole("button", { name: "Sign out" }));
+
+    expect(
+      await screen.findByText("Couldn't sign out. Try again."),
+    ).toBeOnTheScreen();
+    expect(screen.getByText("ana@example.com")).toBeOnTheScreen();
+    jest.restoreAllMocks();
+  });
 });
 
 describe("Create account", () => {

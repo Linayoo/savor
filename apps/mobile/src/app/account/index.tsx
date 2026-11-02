@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { StyleSheet, Text } from "react-native";
 import { useAccount } from "@/account";
 import {
+  FormError,
   FormScreen,
   Notice,
   PrimaryButton,
@@ -16,6 +17,13 @@ import { fonts } from "@/theme";
 export default function Account() {
   const { account, signOut } = useAccount();
   const { busy, run } = useSingleFlight();
+  const [signOutFailed, setSignOutFailed] = useState(false);
+
+  const signOutNow = () =>
+    run(async () => {
+      setSignOutFailed(false);
+      await signOut().catch(() => setSignOutFailed(true));
+    });
 
   if (account.status === "loading") return null;
 
@@ -45,10 +53,13 @@ export default function Account() {
       <Text style={styles.label}>Signed in as</Text>
       <Text style={styles.email}>{account.session.email}</Text>
       <SyncLine />
+      <FormError
+        message={signOutFailed ? "Couldn't sign out. Try again." : undefined}
+      />
       <TextLink
         label="Sign out"
         disabled={busy}
-        onPress={() => void run(signOut)}
+        onPress={() => void signOutNow()}
       />
       <Notice>Signing out keeps your moments on this phone.</Notice>
     </FormScreen>
