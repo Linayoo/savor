@@ -1,4 +1,4 @@
-import { ReactNode, useState } from "react";
+import { ReactNode, useRef, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -18,34 +18,52 @@ import { fonts } from "@/theme";
 
 export type FieldErrors = Partial<Record<AuthField, string>>;
 
+// Runs one request at a time. The ref turns a second tap away at once; the
+// busy state, which disables the buttons, only shows after the next render.
+export function useSingleFlight() {
+  const running = useRef(false);
+  const [busy, setBusy] = useState(false);
+
+  const run = async (task: () => Promise<void>) => {
+    if (running.current) return;
+    running.current = true;
+    setBusy(true);
+    try {
+      await task();
+    } finally {
+      running.current = false;
+      setBusy(false);
+    }
+  };
+
+  return { busy, run };
+}
+
 // Runs a form's submit: checks the fields first, then shows a failure next
 // to the field it concerns, in plain words (spec 005)
 export function useAuthForm() {
   const [errors, setErrors] = useState<FieldErrors>({});
-  const [busy, setBusy] = useState(false);
+  const { busy, run } = useSingleFlight();
 
-  const submit = async (
+  const submit = (
     action: AuthAction,
     problems: Partial<Record<AuthField, string | null>>,
     task: () => Promise<void>,
-  ) => {
-    if (busy) return;
-    const found = Object.fromEntries(
-      Object.entries(problems).filter(([, message]) => message),
-    ) as FieldErrors;
-    setErrors(found);
-    if (Object.keys(found).length > 0) return;
+  ) =>
+    run(async () => {
+      const found = Object.fromEntries(
+        Object.entries(problems).filter(([, message]) => message),
+      ) as FieldErrors;
+      setErrors(found);
+      if (Object.keys(found).length > 0) return;
 
-    setBusy(true);
-    try {
-      await task();
-    } catch (error) {
-      const { field, message } = authErrorMessage(error, action);
-      setErrors({ [field]: message });
-    } finally {
-      setBusy(false);
-    }
-  };
+      try {
+        await task();
+      } catch (error) {
+        const { field, message } = authErrorMessage(error, action);
+        setErrors({ [field]: message });
+      }
+    });
 
   return { errors, busy, submit };
 }
@@ -147,12 +165,20 @@ export function PrimaryButton({
 export function TextLink({
   label,
   onPress,
+  disabled = false,
 }: {
   label: string;
   onPress: () => void;
+  disabled?: boolean;
 }) {
   return (
-    <Pressable onPress={onPress} accessibilityRole="button" style={styles.link}>
+    <Pressable
+      onPress={onPress}
+      disabled={disabled}
+      accessibilityRole="button"
+      accessibilityState={{ disabled }}
+      style={[styles.link, disabled ? styles.linkDisabled : null]}
+    >
       <Text style={styles.linkText}>{label}</Text>
     </Pressable>
   );
@@ -225,5 +251,6 @@ const styles = StyleSheet.create({
   buttonBusy: { opacity: 0.7 },
   buttonText: { fontFamily: fonts.bodyMedium, color: "#FFFCF6", fontSize: 15 },
   link: { alignSelf: "center", paddingVertical: 14, paddingHorizontal: 8 },
+  linkDisabled: { opacity: 0.5 },
   linkText: { fontFamily: fonts.bodyMedium, fontSize: 15, color: "#A5532F" },
 });

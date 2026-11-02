@@ -1,4 +1,6 @@
 import {
+  act,
+  fireEvent,
   render,
   screen,
   userEvent,
@@ -286,5 +288,87 @@ describe("Forgot password", () => {
     await expect(auth.signIn(ana.email, newPassword)).resolves.toMatchObject({
       status: "signedIn",
     });
+  });
+});
+
+// Two taps before the screen redraws, like a quick double tap on the phone
+async function tapTwice(name: string) {
+  const button = screen.getByRole("button", { name });
+  await act(async () => {
+    fireEvent.press(button);
+    fireEvent.press(button);
+  });
+}
+
+describe("Double taps", () => {
+  it("send one sign-in", async () => {
+    const auth = fakeAuth({ users: [ana] });
+    const user = await renderScreen(SignIn, auth);
+    await user.type(screen.getByLabelText("Email"), ana.email);
+    await user.type(screen.getByLabelText("Password"), ana.password);
+
+    await tapTwice("Sign in");
+
+    expect(auth.signIn).toHaveBeenCalledTimes(1);
+  });
+
+  it("send one sign-up, one confirmation and one new code", async () => {
+    const auth = fakeAuth();
+    const user = await renderScreen(CreateAccount, auth);
+    await user.type(screen.getByLabelText("Email"), ana.email);
+    await user.type(screen.getByLabelText("Password"), ana.password);
+
+    await tapTwice("Create account");
+    await user.type(await screen.findByLabelText("Code"), CODE);
+    await tapTwice("Send a new code");
+    await tapTwice("Confirm");
+
+    expect(auth.signUp).toHaveBeenCalledTimes(1);
+    expect(auth.resendSignUpCode).toHaveBeenCalledTimes(1);
+    expect(auth.confirmSignUp).toHaveBeenCalledTimes(1);
+  });
+
+  it("send one reset code and set the password once", async () => {
+    const auth = fakeAuth({ users: [ana] });
+    const user = await renderScreen(ForgotPassword, auth);
+    await user.type(screen.getByLabelText("Email"), ana.email);
+
+    await tapTwice("Send code");
+    await user.type(await screen.findByLabelText("Code"), CODE);
+    await user.type(
+      screen.getByLabelText("New password"),
+      "A new password 2026",
+    );
+    await tapTwice("Set password");
+
+    expect(auth.requestPasswordReset).toHaveBeenCalledTimes(1);
+    expect(auth.confirmPasswordReset).toHaveBeenCalledTimes(1);
+  });
+
+  it("sign out once", async () => {
+    const auth = fakeAuth({
+      users: [ana],
+      signedIn: { userId: ana.userId, email: ana.email },
+    });
+    await renderScreen(Account, auth);
+    await screen.findByRole("button", { name: "Sign out" });
+
+    await tapTwice("Sign out");
+
+    expect(auth.signOut).toHaveBeenCalledTimes(1);
+  });
+
+  it("can't leave the form while its request runs", async () => {
+    const auth = fakeAuth({ users: [ana] });
+    auth.signIn = jest.fn(() => new Promise<never>(() => {}));
+    const user = await renderScreen(SignIn, auth);
+    await user.type(screen.getByLabelText("Email"), ana.email);
+    await user.type(screen.getByLabelText("Password"), ana.password);
+
+    await user.press(screen.getByRole("button", { name: "Sign in" }));
+
+    expect(
+      screen.getByRole("button", { name: "Forgot password" }),
+    ).toBeDisabled();
   });
 });

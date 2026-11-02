@@ -105,6 +105,7 @@ export default function SignIn() {
       <PrimaryButton label="Sign in" onPress={signInNow} busy={busy} />
       <TextLink
         label="Forgot password"
+        disabled={busy}
         onPress={() =>
           router.push({ pathname: "/account/forgot", params: { email } })
         }

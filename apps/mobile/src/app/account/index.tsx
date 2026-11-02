@@ -7,6 +7,7 @@ import {
   Notice,
   PrimaryButton,
   TextLink,
+  useSingleFlight,
 } from "@/components/account-form";
 import { useSync } from "@/sync-provider";
 import { syncLine } from "@/sync/sync-line";
@@ -14,6 +15,7 @@ import { fonts } from "@/theme";
 
 export default function Account() {
   const { account, signOut } = useAccount();
+  const { busy, run } = useSingleFlight();
 
   if (account.status === "loading") return null;
 
@@ -43,7 +45,11 @@ export default function Account() {
       <Text style={styles.label}>Signed in as</Text>
       <Text style={styles.email}>{account.session.email}</Text>
       <SyncLine />
-      <TextLink label="Sign out" onPress={() => void signOut()} />
+      <TextLink
+        label="Sign out"
+        disabled={busy}
+        onPress={() => void run(signOut)}
+      />
       <Notice>Signing out keeps your moments on this phone.</Notice>
     </FormScreen>
   );

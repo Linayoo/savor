@@ -64,6 +64,7 @@ export default function CreateAccount() {
         <PrimaryButton label="Confirm" onPress={confirm} busy={busy} />
         <TextLink
           label="Send a new code"
+          disabled={busy}
           onPress={() => submit("sendCode", {}, () => resendSignUpCode(email))}
         />
       </FormScreen>
