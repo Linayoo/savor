@@ -147,7 +147,17 @@ export default function Index() {
 
   return (
     <View style={styles.screen}>
-      <Text style={styles.title}>Savor</Text>
+      <View style={styles.header}>
+        <Text style={styles.title}>Savor</Text>
+        <Pressable
+          onPress={() => router.push("/account")}
+          style={styles.accountButton}
+          accessibilityRole="button"
+          accessibilityLabel="Account"
+        >
+          <Ionicons name="person-circle-outline" size={26} color="#6B6158" />
+        </Pressable>
+      </View>
       <Text style={styles.tagline}>Notice what makes you feel alive.</Text>
 
       <View style={styles.card}>
@@ -248,7 +258,19 @@ const styles = StyleSheet.create({
     paddingTop: 72,
     paddingHorizontal: 20,
   },
+  header: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
   title: { fontFamily: fonts.title, fontSize: 32, color: "#2B2622" },
+  accountButton: {
+    width: 44,
+    height: 44,
+    alignItems: "center",
+    justifyContent: "center",
+    marginRight: -10,
+  },
   tagline: {
     fontFamily: fonts.serifItalic,
     fontSize: 16,

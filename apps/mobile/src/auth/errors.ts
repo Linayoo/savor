@@ -1,3 +1,5 @@
+import { OTHER_ACCOUNT_MESSAGE } from "../sync/ownership";
+
 // Plain words for the account screens (spec 005): each problem belongs to a
 // field, or to the form as a whole, and never shows a raw service message.
 
@@ -55,6 +57,7 @@ const byName: Record<string, FieldError> = {
     field: "form",
     message: "We couldn't send the email. Try again in a moment.",
   },
+  OwnershipError: { field: "form", message: OTHER_ACCOUNT_MESSAGE },
   NetworkError: {
     field: "form",
     message: "There's no connection. Check that you're online and try again.",

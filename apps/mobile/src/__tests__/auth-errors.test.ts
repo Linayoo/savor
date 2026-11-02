@@ -1,4 +1,5 @@
 import { authErrorMessage, emailProblem, passwordProblem } from "@/auth/errors";
+import { OwnershipError } from "@/sync/ownership";
 
 const awsError = (name: string, message = "raw service message") =>
   Object.assign(new Error(message), { name });
@@ -44,6 +45,14 @@ describe("authErrorMessage", () => {
     ["SomethingNewException", "form"],
   ])("puts %s next to the %s field", (name, field) => {
     expect(authErrorMessage(awsError(name)).field).toBe(field);
+  });
+
+  it("explains that the phone belongs to another account", () => {
+    expect(authErrorMessage(new OwnershipError())).toEqual({
+      field: "form",
+      message:
+        "This phone holds moments from another account. Sign in with that account to keep syncing.",
+    });
   });
 
   it("never shows the raw service message", () => {

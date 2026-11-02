@@ -57,19 +57,20 @@ export async function signUp(email: string, password: string) {
   });
 }
 
-// Confirms the account and signs the person in
+// Confirms the account. Right after signUp, Amplify signs the person in and
+// this returns the session; otherwise (the code step came from a sign-in) it
+// returns null and the caller signs in with the password.
 export async function confirmSignUp(
   email: string,
   code: string,
-): Promise<Session> {
+): Promise<Session | null> {
   configureAuth();
   const { nextStep } = await amplify.confirmSignUp({
     username: normalize(email),
     confirmationCode: code.trim(),
   });
-  if (nextStep.signUpStep === "COMPLETE_AUTO_SIGN_IN") {
-    await amplify.autoSignIn();
-  }
+  if (nextStep.signUpStep !== "COMPLETE_AUTO_SIGN_IN") return null;
+  await amplify.autoSignIn();
   return signedInSession();
 }
 

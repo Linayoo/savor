@@ -95,6 +95,16 @@ describe("signUp and confirmSignUp", () => {
     });
     expect(session).toEqual({ userId: "sub-a", email: "ana@example.com" });
   });
+
+  it("leaves signing in to the caller when the code step came from a sign-in", async () => {
+    auth.confirmSignUp.mockResolvedValue({
+      isSignUpComplete: true,
+      nextStep: { signUpStep: "DONE" },
+    });
+
+    expect(await confirmSignUp("ana@example.com", "123456")).toBeNull();
+    expect(auth.autoSignIn).not.toHaveBeenCalled();
+  });
 });
 
 describe("currentSession", () => {
