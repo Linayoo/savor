@@ -18,7 +18,10 @@ type Stored<T> = T & { userId: string; version: number };
 // nothing.
 export class FakeSyncServer {
   private moments = new Map<string, Stored<MomentChange>>();
-  private photos = new Map<string, Stored<PhotoChange>>();
+  private photos = new Map<
+    string,
+    Stored<PhotoChange & { uploadedAt: number | null }>
+  >();
   private versions = new Map<string, number>();
   private faults: { method: "push" | "pull"; kind: SyncErrorKind }[] = [];
   private hold: { started: () => void; released: Promise<void> } | null = null;
@@ -116,7 +119,9 @@ export class FakeSyncServer {
     }
     for (const change of input.photos) {
       version += 1;
-      upsert(this.photos, change, userId, version);
+      // Pushes never change uploadedAt
+      const uploadedAt = this.photos.get(change.id)?.uploadedAt ?? null;
+      upsert(this.photos, { ...change, uploadedAt }, userId, version);
     }
     this.versions.set(userId, version);
     return version;

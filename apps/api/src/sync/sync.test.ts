@@ -93,9 +93,9 @@ describe("push and pull", () => {
         { ...b, version: 2 },
       ],
       photos: [
-        { ...photos[0], version: 3 },
-        { ...photos[1], version: 4 },
-        { ...photos[2], version: 5 },
+        { ...photos[0], version: 3, uploadedAt: null },
+        { ...photos[1], version: 4, uploadedAt: null },
+        { ...photos[2], version: 5, uploadedAt: null },
       ],
       version: 5,
       hasMore: false,

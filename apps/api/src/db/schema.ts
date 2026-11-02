@@ -40,6 +40,9 @@ export const momentPhotos = pgTable(
     updatedAt: ms("updated_at").notNull(),
     deletedAt: ms("deleted_at"),
     version: ms("version").notNull(),
+    // Set by photos.confirmUpload once the file is in S3 (spec 006); pushes
+    // never change it
+    uploadedAt: ms("uploaded_at"),
   },
   (t) => [index("moment_photos_user_version_idx").on(t.userId, t.version)],
 );

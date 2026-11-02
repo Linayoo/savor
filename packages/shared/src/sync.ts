@@ -29,7 +29,13 @@ const versioned = { version: z.int().min(1) };
 
 export const pullOutputSchema = z.object({
   moments: z.array(momentChangeSchema.extend(versioned)),
-  photos: z.array(photoChangeSchema.extend(versioned)),
+  photos: z.array(
+    photoChangeSchema.extend({
+      ...versioned,
+      // When the server confirmed the file (spec 006); set only by the server
+      uploadedAt: z.int().min(0).nullable(),
+    }),
+  ),
   version: z.int().min(0),
   hasMore: z.boolean(),
 });
