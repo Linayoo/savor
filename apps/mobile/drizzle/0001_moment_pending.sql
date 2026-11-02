@@ -1,0 +1,1 @@
+ALTER TABLE `moments` ADD `pending` integer DEFAULT 1 NOT NULL;

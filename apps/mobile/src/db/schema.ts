@@ -12,6 +12,8 @@ export const moments = sqliteTable(
     createdAt: integer("created_at").notNull(),
     updatedAt: integer("updated_at").notNull(),
     deletedAt: integer("deleted_at"),
+    // 1 while the row has local changes the server hasn't accepted (spec 005)
+    pending: integer("pending").notNull().default(1),
   },
   (t) => [index("moments_timeline_idx").on(t.deletedAt, t.createdAt)],
 );

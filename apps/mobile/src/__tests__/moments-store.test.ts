@@ -42,6 +42,7 @@ describe("insertMoment", () => {
         createdAt: time.now(),
         updatedAt: time.now(),
         deletedAt: null,
+        pending: 1,
       },
     ]);
   });
@@ -202,5 +203,57 @@ describe("deleteMoment", () => {
     );
 
     expect(deleteMoment(db, moment.id, deps)).toEqual(["g1.jpg", "g2.jpg"]);
+  });
+});
+
+// Every local write marks the moment for the next push (spec 005)
+describe("pending", () => {
+  // As if the server had accepted everything
+  const markSynced = (db: ReturnType<typeof setup>["db"]) =>
+    db.update(moments).set({ pending: 0 }).run();
+  const pendingOf = (db: ReturnType<typeof setup>["db"], id: string) =>
+    db
+      .select()
+      .from(moments)
+      .all()
+      .find((m) => m.id === id)?.pending;
+
+  it("is set on a new moment", () => {
+    const { db, deps } = setup();
+
+    const moment = insertMoment(db, { text: "Ramen", photos: [] }, deps);
+
+    expect(pendingOf(db, moment.id)).toBe(1);
+  });
+
+  it("is set again by an edit", () => {
+    const { db, deps } = setup();
+    const moment = insertMoment(db, { text: "Soup", photos: [] }, deps);
+    markSynced(db);
+
+    updateMoment(db, moment.id, { text: "Soup with Ana" }, deps);
+
+    expect(pendingOf(db, moment.id)).toBe(1);
+  });
+
+  it("is set again by a delete", () => {
+    const { db, deps } = setup();
+    const moment = insertMoment(db, { text: "gone", photos: [] }, deps);
+    markSynced(db);
+
+    deleteMoment(db, moment.id, deps);
+
+    expect(pendingOf(db, moment.id)).toBe(1);
+  });
+
+  it("is left alone by an edit to a deleted moment, which changes nothing", () => {
+    const { db, deps } = setup();
+    const moment = insertMoment(db, { text: "gone", photos: [] }, deps);
+    deleteMoment(db, moment.id, deps);
+    markSynced(db);
+
+    updateMoment(db, moment.id, { text: "back?" }, deps);
+
+    expect(pendingOf(db, moment.id)).toBe(0);
   });
 });

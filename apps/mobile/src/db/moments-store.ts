@@ -102,7 +102,12 @@ export function updateMoment(
   { now }: StoreDeps = defaultDeps,
 ) {
   db.update(moments)
-    .set({ text: input.text, kind: input.kind ?? null, updatedAt: now() })
+    .set({
+      text: input.text,
+      kind: input.kind ?? null,
+      updatedAt: now(),
+      pending: 1,
+    })
     .where(and(eq(moments.id, id), isNull(moments.deletedAt)))
     .run();
 }
@@ -130,7 +135,7 @@ export function deleteMoment(
       .map((p) => p.fileName);
 
     tx.update(moments)
-      .set({ deletedAt: time, updatedAt: time })
+      .set({ deletedAt: time, updatedAt: time, pending: 1 })
       .where(and(eq(moments.id, id), isNull(moments.deletedAt)))
       .run();
     tx.update(momentPhotos)
