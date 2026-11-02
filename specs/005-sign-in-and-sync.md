@@ -21,7 +21,7 @@ The sync API runs on AWS behind Cognito (spec 004), and the phone keeps moments 
 3. Create account: email and password (rules shown before typing: at least 12 characters, upper and lower case, a number), then a 6-digit code sent by email, then the person is signed in.
 4. Sign in: email and password. "Forgot password" sends a code by email and lets the person set a new password.
 5. Signed in, the Account screen shows the email, a quiet sync line ("Synced just now", "Synced 3 hours ago", "Waiting for a connection", "Couldn't sync, will try again"), and "Sign out".
-6. Sessions last until sign-out; tokens refresh without asking the person to sign in again, for as long as the refresh token is valid (30 days of inactivity).
+6. A sign-in lasts 30 days: tokens refresh without asking the person in that time, then they are asked to sign in again. Moments stay on the phone.
 7. Errors are shown in plain words next to the field they concern (wrong code, password too short, email already used), never as raw service messages.
 
 ### Ownership of the moments on a phone
