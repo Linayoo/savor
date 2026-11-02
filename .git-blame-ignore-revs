@@ -1,0 +1,5 @@
+# Formatting-only commits, skipped by git blame:
+#   git config blame.ignoreRevsFile .git-blame-ignore-revs
+
+# build: add Prettier with a format check in CI
+180af314ed507ff50967676202822c0fc44f0f44

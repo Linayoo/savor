@@ -41,6 +41,12 @@ pnpm mobile
 
 Code and docs are formatted with Prettier: `pnpm format` formats everything, and CI runs `pnpm format:check`. Expo sometimes rewrites `app.json` or `tsconfig.json` in its own style; `pnpm format` puts them back.
 
+The commit that first formatted the repo is listed in `.git-blame-ignore-revs`. To have `git blame` skip it, run once:
+
+```
+git config blame.ignoreRevsFile .git-blame-ignore-revs
+```
+
 ### Mobile app
 
 The app runs as a development build, not in Expo Go, because Amplify Auth needs its own native module ([ADR 0006](docs/adr/0006-development-build.md)). `ios/` and `android/` are generated and gitignored; native settings live in `apps/mobile/app.json`.
