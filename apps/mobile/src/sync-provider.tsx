@@ -74,7 +74,7 @@ export function SyncProvider({
   subscribeToForeground?: (onActive: () => void) => Unsubscribe;
   children: ReactNode;
 }) {
-  const { account, endSession } = useAccount();
+  const { account, endSession, onSignOut } = useAccount();
   const userId = account.status === "signedIn" ? account.session.userId : null;
   const [engine, setEngine] = useState<SyncEngine | null>(null);
   const [status, setStatus] = useState<SyncStatus | null>(null);
@@ -114,6 +114,13 @@ export function SyncProvider({
         void endSessionRef.current();
       }
     });
+    const offSignOut = onSignOut(() => {
+      next.stop();
+      return () => {
+        next.resume();
+        void next.sync();
+      };
+    });
     const offChange = next.onChange(() =>
       changeListeners.current.forEach((listener) => listener()),
     );
@@ -124,11 +131,12 @@ export function SyncProvider({
     return () => {
       next.stop();
       offStatus();
+      offSignOut();
       offChange();
       setEngine(null);
       setStatus(null);
     };
-  }, [db, userId]);
+  }, [db, userId, onSignOut]);
 
   useEffect(() => {
     if (!engine) return;

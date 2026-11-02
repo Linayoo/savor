@@ -266,6 +266,36 @@ describe("SyncEngine", () => {
     expect(state.attempts).toBe(1);
   });
 
+  it("reports nothing from a sync cancelled by stop, like an unauthorized after sign-out", async () => {
+    let reject = (_: unknown) => {};
+    const { engine, statuses, keep } = setup((api) => ({
+      ...api,
+      push: () => new Promise((_, r) => (reject = r)),
+    }));
+    keep("Ramen");
+
+    const syncing = engine.sync();
+    await jest.advanceTimersByTimeAsync(0);
+    engine.stop();
+    const reported = statuses.length;
+    reject(new SyncError("unauthorized"));
+    await syncing;
+
+    expect(statuses).toHaveLength(reported);
+  });
+
+  it("syncs again after resume, when the sign-out it stopped for failed", async () => {
+    const { engine, server, keep } = setup();
+    keep("Ramen");
+
+    engine.stop();
+    engine.resume();
+    await engine.sync();
+
+    expect(server.momentsOf("user-a").map((m) => m.text)).toEqual(["Ramen"]);
+    expect(engine.status.phase).toBe("idle");
+  });
+
   it("starts from the last sync time stored on the phone", async () => {
     const { db } = setup();
     setMeta(db, "lastSyncedAt", t - 3_600_000);

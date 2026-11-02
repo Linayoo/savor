@@ -42,6 +42,8 @@ export class SyncEngine {
   private running: Promise<void> | null = null;
   private queued = false;
   private stopped = false;
+  // Bumped by stop(), so a sync that was running reports nothing afterwards
+  private generation = 0;
   private failures = 0;
   private retryTimer: Timer | null = null;
   private debounceTimer: Timer | null = null;
@@ -98,12 +100,20 @@ export class SyncEngine {
     return () => this.changeListeners.delete(listener);
   }
 
-  // For sign-out: no more syncs, retries or debounced syncs
+  // For sign-out: no more syncs, retries or debounced syncs. A sync that's
+  // running finishes, but its result is ignored: a failure caused by the
+  // sign-out clearing the tokens isn't an ended session.
   stop() {
     this.stopped = true;
+    this.generation += 1;
     this.queued = false;
     this.clearTimer("retryTimer");
     this.clearTimer("debounceTimer");
+  }
+
+  // After a sign-out that failed
+  resume() {
+    this.stopped = false;
   }
 
   private async runQueued() {
@@ -115,6 +125,8 @@ export class SyncEngine {
 
   private async runOnce() {
     const { db, api, now, deleteFiles } = this.deps;
+    const generation = this.generation;
+    const cancelled = () => generation !== this.generation;
     this.setStatus({
       phase: "syncing",
       lastSyncedAt: this.status.lastSyncedAt,
@@ -122,6 +134,7 @@ export class SyncEngine {
     try {
       await pushPending(db, api);
       const { changed } = await pullChanges(db, api, { now, deleteFiles });
+      if (cancelled()) return;
       this.failures = 0;
       this.setStatus({
         phase: "idle",
@@ -129,7 +142,7 @@ export class SyncEngine {
       });
       if (changed) this.changeListeners.forEach((listener) => listener());
     } catch (error) {
-      this.fail(error);
+      if (!cancelled()) this.fail(error);
     }
   }
 

@@ -225,6 +225,65 @@ describe("SyncProvider", () => {
     expect(getMeta(db, "ownerUserId")).toBe(ana.userId);
   });
 
+  it("doesn't say the session ended when a sync fails because of the sign-out", async () => {
+    let rejectPush = (_: unknown) => {};
+    const pushing: SyncApi = {
+      push: () => new Promise((_, reject) => (rejectPush = reject)),
+      pull: () =>
+        Promise.resolve({
+          moments: [],
+          photos: [],
+          version: 0,
+          hasMore: false,
+        }),
+    };
+    const { auth, app, ui } = setup({ api: pushing });
+    // Every sign-out call waits for the same moment
+    let finishSignOut = () => {};
+    const signedOut = new Promise<void>((resolve) => (finishSignOut = resolve));
+    auth.signOut = jest.fn(() => signedOut);
+    await render(ui(null));
+    await waitFor(() => expect(app.sync?.status?.phase).toBe("syncing"));
+
+    let signingOut = Promise.resolve();
+    await act(async () => {
+      signingOut = app.account!.signOut();
+    });
+    // Amplify cleared the tokens; the sync in flight now fails
+    await act(async () => rejectPush(new SyncError("unauthorized")));
+    await act(async () => {
+      finishSignOut();
+      await signingOut;
+    });
+
+    expect(app.account?.account).toEqual({
+      status: "signedOut",
+      sessionEnded: false,
+    });
+    expect(auth.signOut).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps syncing when signing out fails", async () => {
+    const { server, auth, app, triggers, ui } = setup();
+    auth.signOut = jest.fn(async () => {
+      throw new Error("couldn't sign out");
+    });
+    await render(ui(null));
+    await waitFor(() => expect(app.sync?.status?.phase).toBe("idle"));
+
+    await act(() => expect(app.account!.signOut()).rejects.toThrow());
+    await act(async () =>
+      app.moments!.addMoment("After the failed sign-out", []),
+    );
+    await act(async () => triggers.foreground());
+
+    await waitFor(() =>
+      expect(server.momentsOf(ana.userId).map((m) => m.text)).toContain(
+        "After the failed sign-out",
+      ),
+    );
+  });
+
   it("offers pull-to-refresh on the timeline only while signed in", async () => {
     const signedIn = setup();
     await render(signedIn.ui(<Index />));

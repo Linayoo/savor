@@ -1,8 +1,10 @@
 import {
   createContext,
   ReactNode,
+  useCallback,
   useContext,
   useEffect,
+  useRef,
   useState,
 } from "react";
 import type * as authModule from "./auth/auth";
@@ -52,6 +54,9 @@ type AccountContextValue = {
   ) => Promise<void>;
   signOut: () => Promise<void>;
   endSession: () => Promise<void>;
+  // For sync: called before signing out, and returns how to undo it if the
+  // sign-out fails
+  onSignOut: (listener: () => () => void) => () => void;
 };
 
 const AccountContext = createContext<AccountContextValue | null>(null);
@@ -67,6 +72,13 @@ export function AccountProvider({
   children: ReactNode;
 }) {
   const [account, setAccount] = useState<AccountState>({ status: "loading" });
+  const signOutListeners = useRef(new Set<() => () => void>());
+  const onSignOut = useCallback((listener: () => () => void) => {
+    signOutListeners.current.add(listener);
+    return () => {
+      signOutListeners.current.delete(listener);
+    };
+  }, []);
 
   // Every sign-in goes through here: the phone's moments belong to one
   // account, and another one is signed out again before anything syncs
@@ -117,7 +129,15 @@ export function AccountProvider({
   };
 
   const signOut = async () => {
-    await auth.signOut();
+    // Syncing stops first, so a sync cut off by the sign-out isn't taken for
+    // an ended session
+    const undo = [...signOutListeners.current].map((listener) => listener());
+    try {
+      await auth.signOut();
+    } catch (error) {
+      undo.forEach((resume) => resume());
+      throw error;
+    }
     setAccount({ status: "signedOut", sessionEnded: false });
   };
 
@@ -140,6 +160,7 @@ export function AccountProvider({
         confirmPasswordReset: auth.confirmPasswordReset,
         signOut,
         endSession,
+        onSignOut,
       }}
     >
       {children}
