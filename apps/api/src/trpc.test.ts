@@ -8,12 +8,17 @@ import {
   publicProcedure,
   router,
 } from "./trpc";
+import { unavailablePhotoStorage } from "./photos/storage";
 
 const db = testDb();
 
 describe("health.check", () => {
   it("works without a user", async () => {
-    const caller = createCallerFactory(appRouter)({ db, userId: null });
+    const caller = createCallerFactory(appRouter)({
+      db,
+      userId: null,
+      photos: unavailablePhotoStorage,
+    });
 
     expect(await caller.health.check()).toEqual({ ok: true });
   });
@@ -25,7 +30,11 @@ describe("protectedProcedure", () => {
     open: publicProcedure.query(() => "open"),
   });
   const callerFor = (userId: string | null) =>
-    createCallerFactory(testRouter)({ db, userId });
+    createCallerFactory(testRouter)({
+      db,
+      userId,
+      photos: unavailablePhotoStorage,
+    });
 
   it("rejects a call without a user with UNAUTHORIZED", async () => {
     const call = callerFor(null).whoAmI();

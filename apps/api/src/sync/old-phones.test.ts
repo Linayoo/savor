@@ -5,9 +5,15 @@ import { z } from "zod";
 import { newUserId, testDb } from "../../test/db";
 import { appRouter } from "../router";
 import { createCallerFactory } from "../trpc";
+import { unavailablePhotoStorage } from "../photos/storage";
 
 const db = testDb();
-const as = (userId: string) => createCallerFactory(appRouter)({ db, userId });
+const as = (userId: string) =>
+  createCallerFactory(appRouter)({
+    db,
+    userId,
+    photos: unavailablePhotoStorage,
+  });
 
 // The pull output as the spec 005 build parses it, frozen here: phones on
 // that build keep syncing while spec 006 rolls out, server first

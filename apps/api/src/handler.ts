@@ -6,6 +6,7 @@ import type {
   Context as LambdaContext,
 } from "aws-lambda";
 import type { Db } from "./db/client";
+import type { PhotoStorage } from "./photos/storage";
 import { appRouter } from "./router";
 
 // An HTTP API request. The JWT authorizer adds the verified claims; routes
@@ -24,6 +25,7 @@ export type HandlerEvent = ApiEvent | KeepwarmEvent;
 export type HandlerDeps = {
   getDatabaseUrl: () => Promise<string>;
   createDb: (url: string) => { db: Db; close: () => Promise<void> };
+  photos: PhotoStorage;
 };
 
 // The user is only ever the verified token's subject, never a header
@@ -32,7 +34,11 @@ export function userIdFromEvent(event: ApiEvent): string | null {
   return typeof sub === "string" && sub ? sub : null;
 }
 
-export function createHandler({ getDatabaseUrl, createDb }: HandlerDeps) {
+export function createHandler({
+  getDatabaseUrl,
+  createDb,
+  photos,
+}: HandlerDeps) {
   // Read once per container; a failed read isn't kept, so the next request retries
   let databaseUrl: Promise<string> | undefined;
   const readDatabaseUrl = () => {
@@ -55,6 +61,7 @@ export function createHandler({ getDatabaseUrl, createDb }: HandlerDeps) {
         createContext: ({ event }: { event: ApiEvent }) => ({
           db,
           userId: userIdFromEvent(event),
+          photos,
         }),
       })(event, context);
     } finally {

@@ -2,6 +2,7 @@ import type { IncomingMessage } from "node:http";
 import { describe, expect, it } from "vitest";
 import { testDb } from "../test/db";
 import { createContextFactory, devUserId } from "./context";
+import { unavailablePhotoStorage } from "./photos/storage";
 
 const headers = (h: Record<string, string>) => h as IncomingMessage["headers"];
 
@@ -34,13 +35,21 @@ describe("createContextFactory", () => {
   it("gives requests the db and the dev user in development", () => {
     const createContext = createContextFactory(db, "development");
 
-    expect(createContext({ req } as never)).toEqual({ db, userId: "ana" });
+    expect(createContext({ req } as never)).toEqual({
+      db,
+      userId: "ana",
+      photos: unavailablePhotoStorage,
+    });
   });
 
   it("ignores the header under the environment the tests run in", () => {
     expect(process.env.NODE_ENV).toBe("test");
     const createContext = createContextFactory(db);
 
-    expect(createContext({ req } as never)).toEqual({ db, userId: null });
+    expect(createContext({ req } as never)).toEqual({
+      db,
+      userId: null,
+      photos: unavailablePhotoStorage,
+    });
   });
 });

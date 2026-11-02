@@ -7,10 +7,12 @@ import { FAILING_TEXT } from "../../test/env";
 import { momentPhotos, moments, userSyncState } from "../db/schema";
 import { appRouter } from "../router";
 import { createCallerFactory } from "../trpc";
+import { unavailablePhotoStorage } from "../photos/storage";
 
 const db = testDb();
 const createCaller = createCallerFactory(appRouter);
-const as = (userId: string | null) => createCaller({ db, userId });
+const as = (userId: string | null) =>
+  createCaller({ db, userId, photos: unavailablePhotoStorage });
 
 const t = Date.UTC(2026, 9, 1, 9, 30);
 

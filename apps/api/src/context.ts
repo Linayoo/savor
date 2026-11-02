@@ -1,6 +1,7 @@
 import type { CreateHTTPContextOptions } from "@trpc/server/adapters/standalone";
 import type { IncomingHttpHeaders } from "node:http";
 import type { Db } from "./db/client";
+import { unavailablePhotoStorage } from "./photos/storage";
 import type { Context } from "./trpc";
 
 // Development-only stand-in for auth on the local server. In any other
@@ -19,5 +20,6 @@ export function createContextFactory(db: Db, env = process.env.NODE_ENV) {
   return ({ req }: CreateHTTPContextOptions): Context => ({
     db,
     userId: devUserId(req.headers, env),
+    photos: unavailablePhotoStorage,
   });
 }
