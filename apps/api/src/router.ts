@@ -9,6 +9,7 @@ import {
   pushInputSchema,
   pushOutputSchema,
 } from "@savor/shared";
+import { deletePushedPhotoFiles } from "./photos/delete-files";
 import { confirmUpload, createUpload, downloadUrls } from "./photos/procedures";
 import { pull } from "./sync/pull";
 import { push } from "./sync/push";
@@ -22,7 +23,12 @@ export const appRouter = router({
     push: protectedProcedure
       .input(pushInputSchema)
       .output(pushOutputSchema)
-      .mutation(({ ctx, input }) => push(ctx.db, ctx.userId, input)),
+      .mutation(async ({ ctx, input }) => {
+        const output = await push(ctx.db, ctx.userId, input);
+        // After the commit: a refused push deletes nothing
+        await deletePushedPhotoFiles(ctx.db, ctx.photos, ctx.userId, input);
+        return output;
+      }),
     pull: protectedProcedure
       .input(pullInputSchema)
       .output(pullOutputSchema)
