@@ -10,11 +10,13 @@ export const CODE = "123456";
 
 type User = { email: string; password: string; userId: string };
 
-// unconfirmed: accounts created earlier whose code was never entered
+// unconfirmed: accounts created earlier whose code was never entered;
+// signOutFails: signing out throws and leaves the user signed in
 export function fakeAuth({
   users = [] as User[],
   unconfirmed = [] as User[],
   signedIn = null as Session | null,
+  signOutFails = false,
 } = {}) {
   const accounts = new Map<string, User & { confirmed: boolean }>([
     ...users.map((u) => [u.email, { ...u, confirmed: true }] as const),
@@ -66,6 +68,7 @@ export function fakeAuth({
       },
     ),
     signOut: jest.fn(async () => {
+      if (signOutFails) throw awsError("SomethingNewException");
       current = null;
     }),
   };

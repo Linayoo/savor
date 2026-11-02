@@ -72,7 +72,9 @@ export function AccountProvider({
   // account, and another one is signed out again before anything syncs
   const accept = async (session: Session) => {
     if (claimPhone(db, session.userId) === "otherAccount") {
-      await auth.signOut();
+      // The ownership message stands even if this fails; the next sign-in
+      // signs out whoever Amplify still holds first
+      await auth.signOut().catch(() => undefined);
       setAccount({ status: "signedOut", sessionEnded: false });
       throw new OwnershipError();
     }

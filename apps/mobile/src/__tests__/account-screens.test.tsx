@@ -177,6 +177,48 @@ describe("Create account", () => {
   });
 });
 
+describe("Create account on a phone that belongs to another account", () => {
+  // Issue 1 from manual testing: a new account goes through sign-up, the
+  // code and the automatic sign-in, not the sign-in form
+  it("refuses the new account with the ownership message", async () => {
+    const auth = fakeAuth({ users: [ana] });
+    const user = await renderScreen(CreateAccount, auth);
+    setMeta(db, "ownerUserId", ana.userId);
+
+    await user.type(screen.getByLabelText("Email"), ben.email);
+    await user.type(screen.getByLabelText("Password"), ben.password);
+    await user.press(screen.getByRole("button", { name: "Create account" }));
+    await user.type(await screen.findByLabelText("Code"), CODE);
+    await user.press(screen.getByRole("button", { name: "Confirm" }));
+
+    expect(
+      await screen.findByText(
+        "This phone holds moments from another account. Sign in with that account to keep syncing.",
+      ),
+    ).toBeOnTheScreen();
+    expect(await auth.currentSession()).toBeNull();
+    expect(getMeta(db, "ownerUserId")).toBe(ana.userId);
+    expect(router.dismissAll).not.toHaveBeenCalled();
+  });
+
+  it("sends an email that was never confirmed to sign in, which asks for its code", async () => {
+    const user = await renderScreen(
+      CreateAccount,
+      fakeAuth({ unconfirmed: [ana] }),
+    );
+
+    await user.type(screen.getByLabelText("Email"), ana.email);
+    await user.type(screen.getByLabelText("Password"), ana.password);
+    await user.press(screen.getByRole("button", { name: "Create account" }));
+
+    expect(
+      await field("email").findByText(
+        "There's already an account with this email. Sign in instead.",
+      ),
+    ).toBeOnTheScreen();
+  });
+});
+
 describe("Sign in", () => {
   it("says what failed and what to do when the error has no message of its own", async () => {
     jest.spyOn(console, "log").mockImplementation(() => {});
@@ -240,6 +282,25 @@ describe("Sign in", () => {
     expect(await auth.currentSession()).toBeNull();
     expect(getMeta(db, "ownerUserId")).toBe(ana.userId);
     expect(router.dismissAll).not.toHaveBeenCalled();
+  });
+
+  it("keeps the ownership message when signing the refused account out fails", async () => {
+    jest.spyOn(console, "log").mockImplementation(() => {});
+    const auth = fakeAuth({ users: [ana, ben], signOutFails: true });
+    const user = await renderScreen(SignIn, auth);
+    setMeta(db, "ownerUserId", ana.userId);
+
+    await user.type(screen.getByLabelText("Email"), ben.email);
+    await user.type(screen.getByLabelText("Password"), ben.password);
+    await user.press(screen.getByRole("button", { name: "Sign in" }));
+
+    expect(
+      await screen.findByText(
+        "This phone holds moments from another account. Sign in with that account to keep syncing.",
+      ),
+    ).toBeOnTheScreen();
+    expect(getMeta(db, "ownerUserId")).toBe(ana.userId);
+    jest.restoreAllMocks();
   });
 
   it("asks for the code of an account that was never confirmed, then signs in", async () => {
