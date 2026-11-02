@@ -233,11 +233,47 @@ It checks five things:
 
 At the end it deletes the moment it pushed.
 
+### Photos
+
+Photos live in a private S3 bucket, `savor-photos-<account id>` (spec 006). The phone uploads and downloads them with presigned URLs from the API, signed with the Lambda's role; nothing else is granted access, apart from your admin user. Terraform creates the bucket and gives the Lambda its name.
+
+`photo-checks` checks the bucket and the photo API against AWS, with the smoke test's users and environment, plus the bucket name:
+
+```
+export SAVOR_PHOTOS_BUCKET="$(terraform -chdir=infra/app output -raw photos_bucket)"
+pnpm --filter @savor/api photo-checks
+```
+
+It checks that:
+
+- the bucket blocks public access, refuses plain HTTP and grants nothing in its policy
+- S3 refuses a file over 10 MB, another content type and another key
+- B gets nothing for A's photo
+- deleting the moment deletes the object
+
+With `pnpm --filter @savor/api photo-checks -- --expiry` it also waits 15 minutes to check that the upload form stops working after 5 minutes and the download URL after 15.
+
+To check a photo uploaded by the phone for location data, download it and read its metadata with `exiftool` (`brew install exiftool`):
+
+```
+aws s3 ls "s3://$SAVOR_PHOTOS_BUCKET/users/" --recursive
+aws s3 cp "s3://$SAVOR_PHOTOS_BUCKET/<key>" photo.jpg
+exiftool photo.jpg
+```
+
+The output should have no GPS lines, no camera make or model, and an image size whose longer side is at most 2048.
+
 ### Tearing down
 
 The user pool has deletion protection, and destroying the Neon project deletes the data with it.
 
-1. Set `deletion_protection = "INACTIVE"` in `infra/app/auth.tf`, then:
+1. Empty the photos bucket, since Terraform won't destroy a bucket with objects in it:
+
+   ```
+   aws s3 rm "s3://$(terraform -chdir=infra/app output -raw photos_bucket)" --recursive
+   ```
+
+2. Set `deletion_protection = "INACTIVE"` in `infra/app/auth.tf`, then:
 
    ```
    terraform -chdir=infra/app apply
@@ -250,7 +286,7 @@ The user pool has deletion protection, and destroying the Neon project deletes t
    aws secretsmanager delete-secret --secret-id savor/database --force-delete-without-recovery
    ```
 
-2. The state bucket is versioned, so empty every version before destroying bootstrap. A state bucket holds far fewer than the 1,000 objects one call can delete.
+3. The state bucket is versioned, so empty every version before destroying bootstrap. A state bucket holds far fewer than the 1,000 objects one call can delete.
 
    ```
    BUCKET="$(terraform -chdir=infra/bootstrap output -raw state_bucket)"
