@@ -36,7 +36,7 @@ describe("authErrorMessage", () => {
   it.each([
     ["UsernameExistsException", "email"],
     ["InvalidPasswordException", "password"],
-    ["NotAuthorizedException", "password"],
+    ["UserNotFoundException", "password"],
     ["CodeMismatchException", "code"],
     ["ExpiredCodeException", "code"],
     ["LimitExceededException", "form"],
@@ -70,6 +70,50 @@ describe("authErrorMessage", () => {
       "Couldn't sign in. Check your connection and try again.",
     );
     jest.restoreAllMocks();
+  });
+});
+
+// Cognito uses one name for several cases; only the message tells them apart
+describe("NotAuthorizedException", () => {
+  beforeEach(() => jest.spyOn(console, "log").mockImplementation(() => {}));
+  afterEach(() => jest.restoreAllMocks());
+
+  it("is a wrong email or password only when Cognito says so", () => {
+    expect(
+      authErrorMessage(
+        awsError("NotAuthorizedException", "Incorrect username or password."),
+        "signIn",
+      ),
+    ).toEqual({
+      field: "password",
+      message: "The email or password isn't right.",
+    });
+  });
+
+  it("asks to wait after too many password attempts", () => {
+    expect(
+      authErrorMessage(
+        awsError("NotAuthorizedException", "Password attempts exceeded"),
+        "signIn",
+      ),
+    ).toEqual({
+      field: "form",
+      message: "Too many attempts. Wait a few minutes and try again.",
+    });
+  });
+
+  it.each([
+    "Invalid session for the user, session is expired.",
+    "Refresh Token has expired",
+    "User cannot be confirmed. Current status is CONFIRMED",
+    "raw service message",
+  ])("isn't blamed on the password for %j", (message) => {
+    expect(
+      authErrorMessage(awsError("NotAuthorizedException", message), "signIn"),
+    ).toEqual({
+      field: "form",
+      message: "Couldn't sign in. Check your connection and try again.",
+    });
   });
 });
 

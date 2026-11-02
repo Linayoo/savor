@@ -1,7 +1,8 @@
 import type { AuthService } from "@/account";
 import type { Session } from "@/auth/auth";
 
-const awsError = (name: string) => Object.assign(new Error(name), { name });
+const awsError = (name: string, message = name) =>
+  Object.assign(new Error(message), { name });
 
 // Cognito in memory, behind the same functions as src/auth/auth.ts. Every
 // code is CODE; errors carry Cognito's names.
@@ -27,7 +28,10 @@ export function fakeAuth({
     signIn: jest.fn(async (email: string, password: string) => {
       const account = accounts.get(email.trim().toLowerCase());
       if (!account || account.password !== password) {
-        throw awsError("NotAuthorizedException");
+        throw awsError(
+          "NotAuthorizedException",
+          "Incorrect username or password.",
+        );
       }
       if (!account.confirmed) return { status: "confirmSignUp" as const };
       current = { userId: account.userId, email: account.email };

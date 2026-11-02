@@ -27,6 +27,16 @@ export function emailProblem(email: string): string | null {
     : "This doesn't look like an email address.";
 }
 
+const tooManyTries: FieldError = {
+  field: "form",
+  message: "Too many attempts. Wait a few minutes and try again.",
+};
+
+const wrongPassword: FieldError = {
+  field: "password",
+  message: "The email or password isn't right.",
+};
+
 const byName: Record<string, FieldError> = {
   UsernameExistsException: {
     field: "email",
@@ -36,15 +46,7 @@ const byName: Record<string, FieldError> = {
     field: "password",
     message: `This password doesn't meet the rules. ${PASSWORD_RULES}`,
   },
-  // Also an unknown email: the user pool doesn't say which one is wrong
-  NotAuthorizedException: {
-    field: "password",
-    message: "The email or password isn't right.",
-  },
-  UserNotFoundException: {
-    field: "password",
-    message: "The email or password isn't right.",
-  },
+  UserNotFoundException: wrongPassword,
   CodeMismatchException: {
     field: "code",
     message: "That code isn't right. Check the email and try again.",
@@ -64,10 +66,15 @@ const byName: Record<string, FieldError> = {
   },
 };
 
-const tooManyTries: FieldError = {
-  field: "form",
-  message: "Too many tries. Wait a few minutes and try again.",
-};
+// Cognito uses NotAuthorizedException for a wrong password, too many
+// attempts and expired sessions alike; only the message tells them apart.
+// Anything that isn't clearly a wrong password gets the fallback.
+function notAuthorized(message: string): FieldError | null {
+  // Also an unknown email: the user pool doesn't say which one is wrong
+  if (/incorrect username or password/i.test(message)) return wrongPassword;
+  if (/password attempts exceeded/i.test(message)) return tooManyTries;
+  return null;
+}
 
 // What the person was doing, so a failure without its own message can still
 // say what didn't happen and what to try
@@ -89,7 +96,12 @@ export function authErrorMessage(
   action: AuthAction,
 ): FieldError {
   const name = error instanceof Error ? error.name : "";
-  if (name in byName) return byName[name];
+  if (name === "NotAuthorizedException") {
+    const known = notAuthorized((error as Error).message);
+    if (known) return known;
+  } else if (name in byName) {
+    return byName[name];
+  }
   if (/^(LimitExceeded|TooManyRequests|TooManyFailedAttempts)/.test(name)) {
     return tooManyTries;
   }
