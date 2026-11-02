@@ -39,6 +39,39 @@ pnpm install
 pnpm mobile
 ```
 
+### Mobile app
+
+The app runs as a development build, not in Expo Go, because Amplify Auth needs its own native module ([ADR 0006](docs/adr/0006-development-build.md)). `ios/` and `android/` are generated and gitignored; native settings live in `apps/mobile/app.json`.
+
+You need Xcode with an iOS simulator. The simulator needs no Apple account.
+
+1. Point the app at the deployed API and user pool. The values are the Terraform outputs `api_url`, `user_pool_id` and `client_id`; none are secrets.
+
+   ```
+   cp apps/mobile/.env.example apps/mobile/.env
+   ```
+
+2. Build and install the app on a simulator. This takes a few minutes the first time:
+
+   ```
+   pnpm --filter @savor/mobile exec expo run:ios
+   ```
+
+3. After that, `pnpm mobile` serves the JavaScript with fast refresh. Build again only after adding a native package or changing `app.json`. Restart `pnpm mobile` after changing `.env`.
+
+To test sync with two devices, install the build on a second simulator too:
+
+```
+xcrun simctl list devices available
+pnpm --filter @savor/mobile exec expo run:ios --device "<name of a second simulator>"
+```
+
+Both simulators then load the app from the same `pnpm mobile`. Create an account in the app on one, and sign in with it on the other.
+
+On an iPhone (optional), connect it and run `expo run:ios --device`. Xcode needs a signing team: with a free Apple ID the app stops opening after 7 days and has to be installed again; the paid Apple Developer Program removes that limit.
+
+Moments kept in Expo Go stay in Expo Go: the development build is a different app with its own storage.
+
 ### API
 
 The API runs locally against Postgres in Docker. `docker compose up -d` starts Postgres 17 on port 5433, with a `savor` database for development and a `savor_test` database for tests.
