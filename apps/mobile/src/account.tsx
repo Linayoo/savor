@@ -5,13 +5,14 @@ import {
   useEffect,
   useState,
 } from "react";
-import * as defaultAuth from "./auth/auth";
-import type { Session } from "./auth/auth";
+import type * as authModule from "./auth/auth";
 import type { AppDb } from "./db/types";
 import { claimPhone, OwnershipError } from "./sync/ownership";
 
+type Session = authModule.Session;
+
 export type AuthService = Pick<
-  typeof defaultAuth,
+  typeof authModule,
   | "currentSession"
   | "signIn"
   | "signUp"
@@ -57,11 +58,12 @@ const AccountContext = createContext<AccountContextValue | null>(null);
 
 export function AccountProvider({
   db,
-  auth = defaultAuth,
+  auth,
   children,
 }: {
   db: AppDb;
-  auth?: AuthService;
+  // src/auth/auth.ts in the app, a fake in tests
+  auth: AuthService;
   children: ReactNode;
 }) {
   const [account, setAccount] = useState<AccountState>({ status: "loading" });

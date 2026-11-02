@@ -4,6 +4,12 @@ import mockSafeAreaContext from "react-native-safe-area-context/jest/mock";
 jest.mock("@react-native-async-storage/async-storage", () => mockAsyncStorage);
 jest.mock("react-native-safe-area-context", () => mockSafeAreaContext);
 
+// NetInfo needs its native module; tests drive the connection themselves
+jest.mock("@react-native-community/netinfo", () => ({
+  __esModule: true,
+  default: { addEventListener: () => () => undefined },
+}));
+
 // expo-crypto's randomUUID calls a native module that Jest can't load
 jest.mock("expo-crypto", () => ({
   ...jest.requireActual("expo-crypto"),

@@ -10,9 +10,18 @@ import {
 } from "@expo-google-fonts/work-sans";
 import { Stack } from "expo-router";
 import { AccountProvider } from "../account";
+import * as auth from "../auth/auth";
+import { appConfig } from "../config";
 import { db } from "../db/client";
 import { DatabaseGate } from "../db/database-gate";
 import { MomentsProvider } from "../moments";
+import { deletePhotoFiles } from "../photos";
+import { SyncProvider } from "../sync-provider";
+import { createTrpcSyncApi } from "../sync/trpc-api";
+
+// Created once someone signs in, so the app works without config or network
+const createApi = () =>
+  createTrpcSyncApi({ url: appConfig().apiUrl, getToken: auth.getAccessToken });
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
@@ -27,17 +36,26 @@ export default function RootLayout() {
 
   return (
     <DatabaseGate>
-      <AccountProvider db={db}>
-        <MomentsProvider db={db}>
-          <Stack screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="(tabs)" />
-            <Stack.Screen
-              name="moment/[id]"
-              options={{ presentation: "fullScreenModal", animation: "fade" }}
-            />
-            <Stack.Screen name="account" options={{ presentation: "modal" }} />
-          </Stack>
-        </MomentsProvider>
+      <AccountProvider db={db} auth={auth}>
+        <SyncProvider
+          db={db}
+          createApi={createApi}
+          deleteFiles={deletePhotoFiles}
+        >
+          <MomentsProvider db={db}>
+            <Stack screenOptions={{ headerShown: false }}>
+              <Stack.Screen name="(tabs)" />
+              <Stack.Screen
+                name="moment/[id]"
+                options={{ presentation: "fullScreenModal", animation: "fade" }}
+              />
+              <Stack.Screen
+                name="account"
+                options={{ presentation: "modal" }}
+              />
+            </Stack>
+          </MomentsProvider>
+        </SyncProvider>
       </AccountProvider>
     </DatabaseGate>
   );

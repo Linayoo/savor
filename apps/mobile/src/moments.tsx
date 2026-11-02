@@ -1,24 +1,18 @@
-import { Directory, File, Paths } from "expo-file-system";
-import { createContext, ReactNode, useContext, useState } from "react";
+import {
+  createContext,
+  ReactNode,
+  useContext,
+  useEffect,
+  useState,
+} from "react";
 import * as store from "./db/moments-store";
 import type { AppDb } from "./db/types";
 import type { MomentKind } from "./kinds";
+import { deletePhotoFiles, savePhoto } from "./photos";
+import { useSync } from "./sync-provider";
 
 export type { Moment } from "./db/moments-store";
-
-const photosDir = new Directory(Paths.document, "photos");
-
-function savePhoto(tempUri: string): string {
-  if (!photosDir.exists) photosDir.create({ idempotent: true });
-  const source = new File(tempUri);
-  const name = `${Date.now()}-${source.name}`;
-  source.copySync(new File(photosDir, name));
-  return name;
-}
-
-export function photoUri(photo: string): string {
-  return photo.startsWith("file://") ? photo : new File(photosDir, photo).uri;
-}
+export { photoUri } from "./photos";
 
 type MomentsContextValue = {
   moments: store.Moment[];
@@ -38,26 +32,31 @@ export function MomentsProvider({
 }) {
   const [moments, setMoments] = useState(() => store.listMoments(db));
   const reload = () => setMoments(store.listMoments(db));
+  const { onChange, notifyLocalChange } = useSync();
+
+  // Moments that arrived from other devices
+  useEffect(
+    () => onChange(() => setMoments(store.listMoments(db))),
+    [onChange, db],
+  );
 
   const addMoment = (text: string, tempPhotos: string[], kind?: MomentKind) => {
     const photos = tempPhotos.map(savePhoto);
     store.insertMoment(db, { text, photos, kind });
     reload();
+    notifyLocalChange();
   };
 
   const updateMoment = (id: string, text: string, kind?: MomentKind) => {
     store.updateMoment(db, id, { text, kind });
     reload();
+    notifyLocalChange();
   };
 
   const deleteMoment = (id: string) => {
-    const fileNames = store.deleteMoment(db, id);
-    fileNames.forEach((p) => {
-      if (p.startsWith("file://")) return; // old temporary photos, not ours to delete
-      const file = new File(photosDir, p);
-      if (file.exists) file.delete();
-    });
+    deletePhotoFiles(store.deleteMoment(db, id));
     reload();
+    notifyLocalChange();
   };
 
   return (

@@ -10,6 +10,7 @@ import {
   Image,
   Platform,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   Text,
@@ -20,6 +21,7 @@ import {
 import { KindChips } from "@/components/kind-chips";
 import { kindIcon, momentLine, type MomentKind } from "@/kinds";
 import { photoUri, useMoments, type Moment } from "../../moments";
+import { useSync } from "../../sync-provider";
 
 export default function Index() {
   const { moments, addMoment, updateMoment, deleteMoment } = useMoments();
@@ -28,6 +30,14 @@ export default function Index() {
   const [draftKind, setDraftKind] = useState<MomentKind | undefined>();
   const [editingId, setEditingId] = useState<string | null>(null);
   const inputRef = useRef<TextInputInstance>(null);
+  const sync = useSync();
+  const [refreshing, setRefreshing] = useState(false);
+
+  const refresh = async () => {
+    setRefreshing(true);
+    await sync.syncNow();
+    setRefreshing(false);
+  };
 
   const addUris = (uris: string[]) =>
     setDraftPhotos((prev) => [...prev, ...uris]);
@@ -212,6 +222,15 @@ export default function Index() {
         data={moments}
         keyExtractor={(m) => m.id}
         testID="timeline"
+        refreshControl={
+          sync.status ? (
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={refresh}
+              tintColor="#A5532F"
+            />
+          ) : undefined
+        }
         renderItem={({ item }) => (
           <Pressable
             style={styles.moment}
