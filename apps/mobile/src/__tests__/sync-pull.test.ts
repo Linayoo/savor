@@ -206,7 +206,7 @@ describe("pullChanges", () => {
   });
 
   it("keeps the pages before a failed call", async () => {
-    const { db, server, pull, seed } = setup();
+    const { db, server, seed } = setup();
     seed(...Array.from({ length: 5 }, () => change()));
     const api = server.api("user-a");
     let calls = 0;

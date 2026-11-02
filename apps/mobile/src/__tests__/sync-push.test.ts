@@ -151,7 +151,7 @@ describe("pushPending", () => {
   });
 
   it("keeps the batches the server accepted when a later one fails", async () => {
-    const { db, server, api, keep } = setup();
+    const { db, server, keep } = setup();
     for (let i = 0; i < 150; i++) keep(`moment ${i}`);
     const failSecond = server.api("user-a");
     let calls = 0;
