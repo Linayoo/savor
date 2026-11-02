@@ -21,6 +21,7 @@ export default function CreateAccount() {
 
   const create = () =>
     submit(
+      "signUp",
       { email: emailProblem(email), password: passwordProblem(password) },
       async () => {
         await signUp(email, password);
@@ -30,6 +31,7 @@ export default function CreateAccount() {
 
   const confirm = () =>
     submit(
+      "confirmCode",
       {
         code: /^\d{6}$/.test(code.trim())
           ? null
@@ -62,7 +64,7 @@ export default function CreateAccount() {
         <PrimaryButton label="Confirm" onPress={confirm} busy={busy} />
         <TextLink
           label="Send a new code"
-          onPress={() => submit({}, () => resendSignUpCode(email))}
+          onPress={() => submit("sendCode", {}, () => resendSignUpCode(email))}
         />
       </FormScreen>
     );

@@ -44,11 +44,11 @@ describe("authErrorMessage", () => {
     ["NetworkError", "form"],
     ["SomethingNewException", "form"],
   ])("puts %s next to the %s field", (name, field) => {
-    expect(authErrorMessage(awsError(name)).field).toBe(field);
+    expect(authErrorMessage(awsError(name), "signIn").field).toBe(field);
   });
 
   it("explains that the phone belongs to another account", () => {
-    expect(authErrorMessage(new OwnershipError())).toEqual({
+    expect(authErrorMessage(new OwnershipError(), "signIn")).toEqual({
       field: "form",
       message:
         "This phone holds moments from another account. Sign in with that account to keep syncing.",
@@ -62,14 +62,43 @@ describe("authErrorMessage", () => {
       "NotAuthorizedException",
       "SomethingNewException",
     ]) {
-      expect(authErrorMessage(awsError(name)).message).not.toContain(
+      expect(authErrorMessage(awsError(name), "signIn").message).not.toContain(
         "raw service message",
       );
     }
-    expect(authErrorMessage("not even an error").message).toBe(
-      "Something went wrong. Please try again.",
+    expect(authErrorMessage("not even an error", "signIn").message).toBe(
+      "Couldn't sign in. Check your connection and try again.",
     );
     jest.restoreAllMocks();
+  });
+});
+
+describe("errors without their own message", () => {
+  beforeEach(() => jest.spyOn(console, "log").mockImplementation(() => {}));
+  afterEach(() => jest.restoreAllMocks());
+
+  it.each([
+    ["signIn", "Couldn't sign in. Check your connection and try again."],
+    [
+      "signUp",
+      "Couldn't create your account. Check your connection and try again.",
+    ],
+    [
+      "confirmCode",
+      "Couldn't confirm the code. Check your connection and try again.",
+    ],
+    [
+      "sendCode",
+      "Couldn't send the code. Check your connection and try again.",
+    ],
+    [
+      "setPassword",
+      "Couldn't set your password. Check your connection and try again.",
+    ],
+  ] as const)("say what failed in %s and what to do", (action, message) => {
+    expect(authErrorMessage(awsError("SomethingNewException"), action)).toEqual(
+      { field: "form", message },
+    );
   });
 });
 
@@ -80,7 +109,7 @@ describe("unknown errors in development", () => {
       underlyingError: awsError("InnerException", "inner details"),
     });
 
-    authErrorMessage(error);
+    authErrorMessage(error, "signIn");
 
     expect(log.mock.calls.map((call) => call.join(" "))).toEqual([
       "[auth] unknown error: SomethingNewException: details",
@@ -93,7 +122,7 @@ describe("unknown errors in development", () => {
   it("prints nothing more for errors that have a message", () => {
     const log = jest.spyOn(console, "log").mockImplementation(() => {});
 
-    authErrorMessage(awsError("CodeMismatchException"));
+    authErrorMessage(awsError("CodeMismatchException"), "signIn");
 
     expect(log).not.toHaveBeenCalled();
     log.mockRestore();

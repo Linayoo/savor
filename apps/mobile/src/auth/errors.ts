@@ -69,14 +69,32 @@ const tooManyTries: FieldError = {
   message: "Too many tries. Wait a few minutes and try again.",
 };
 
-export function authErrorMessage(error: unknown): FieldError {
+// What the person was doing, so a failure without its own message can still
+// say what didn't happen and what to try
+export type AuthAction =
+  "signIn" | "signUp" | "confirmCode" | "sendCode" | "setPassword";
+
+const fallbacks: Record<AuthAction, string> = {
+  signIn: "Couldn't sign in. Check your connection and try again.",
+  signUp: "Couldn't create your account. Check your connection and try again.",
+  confirmCode:
+    "Couldn't confirm the code. Check your connection and try again.",
+  sendCode: "Couldn't send the code. Check your connection and try again.",
+  setPassword:
+    "Couldn't set your password. Check your connection and try again.",
+};
+
+export function authErrorMessage(
+  error: unknown,
+  action: AuthAction,
+): FieldError {
   const name = error instanceof Error ? error.name : "";
   if (name in byName) return byName[name];
   if (/^(LimitExceeded|TooManyRequests|TooManyFailedAttempts)/.test(name)) {
     return tooManyTries;
   }
   if (__DEV__) logAuthError("unknown error", error);
-  return { field: "form", message: "Something went wrong. Please try again." };
+  return { field: "form", message: fallbacks[action] };
 }
 
 // Development only: prints an auth error's name and message to the Metro

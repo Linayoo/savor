@@ -23,6 +23,7 @@ export default function SignIn() {
 
   const signInNow = () =>
     submit(
+      "signIn",
       {
         email: emailProblem(email),
         password: password ? null : "Enter your password.",
@@ -39,6 +40,7 @@ export default function SignIn() {
 
   const confirm = () =>
     submit(
+      "confirmCode",
       {
         code: /^\d{6}$/.test(code.trim())
           ? null

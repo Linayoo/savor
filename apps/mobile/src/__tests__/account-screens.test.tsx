@@ -176,6 +176,26 @@ describe("Create account", () => {
 });
 
 describe("Sign in", () => {
+  it("says what failed and what to do when the error has no message of its own", async () => {
+    jest.spyOn(console, "log").mockImplementation(() => {});
+    const auth = fakeAuth({ users: [ana] });
+    auth.signIn = jest.fn(async () => {
+      throw Object.assign(new Error("raw"), { name: "SomethingNewException" });
+    });
+    const user = await renderScreen(SignIn, auth);
+
+    await user.type(screen.getByLabelText("Email"), ana.email);
+    await user.type(screen.getByLabelText("Password"), ana.password);
+    await user.press(screen.getByRole("button", { name: "Sign in" }));
+
+    expect(
+      await screen.findByText(
+        "Couldn't sign in. Check your connection and try again.",
+      ),
+    ).toBeOnTheScreen();
+    jest.restoreAllMocks();
+  });
+
   it("says next to the password when the email or password is wrong", async () => {
     const user = await renderScreen(SignIn, fakeAuth({ users: [ana] }));
 

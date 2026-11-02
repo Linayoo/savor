@@ -20,13 +20,14 @@ export default function ForgotPassword() {
   const { errors, busy, submit } = useAuthForm();
 
   const sendCode = () =>
-    submit({ email: emailProblem(email) }, async () => {
+    submit("sendCode", { email: emailProblem(email) }, async () => {
       await requestPasswordReset(email);
       setStep("reset");
     });
 
   const reset = () =>
     submit(
+      "setPassword",
       {
         code: /^\d{6}$/.test(code.trim())
           ? null

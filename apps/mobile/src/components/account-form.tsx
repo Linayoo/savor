@@ -9,7 +9,11 @@ import {
   type TextInputProps,
   View,
 } from "react-native";
-import { authErrorMessage, type AuthField } from "@/auth/errors";
+import {
+  type AuthAction,
+  authErrorMessage,
+  type AuthField,
+} from "@/auth/errors";
 import { fonts } from "@/theme";
 
 export type FieldErrors = Partial<Record<AuthField, string>>;
@@ -21,6 +25,7 @@ export function useAuthForm() {
   const [busy, setBusy] = useState(false);
 
   const submit = async (
+    action: AuthAction,
     problems: Partial<Record<AuthField, string | null>>,
     task: () => Promise<void>,
   ) => {
@@ -35,7 +40,7 @@ export function useAuthForm() {
     try {
       await task();
     } catch (error) {
-      const { field, message } = authErrorMessage(error);
+      const { field, message } = authErrorMessage(error, action);
       setErrors({ [field]: message });
     } finally {
       setBusy(false);
