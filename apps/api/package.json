@@ -16,7 +16,8 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "vitest run",
-    "smoke": "tsx scripts/smoke.ts"
+    "smoke": "tsx scripts/smoke.ts",
+    "photo-checks": "tsx scripts/photo-checks.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1161.0",
