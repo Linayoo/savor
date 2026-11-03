@@ -12,6 +12,9 @@ export interface PhotoTransfer {
   // SyncError if S3 refuses it or can't be reached.
   upload(form: CreateUploadOutput, uri: string): Promise<void>;
   discard(uri: string): void;
+  // Saves the photo at a download URL into the photos folder and returns its
+  // file name. Throws a SyncError if it can't.
+  download(url: string, photoId: string): Promise<string>;
 }
 
 // Runs task for every item, at most `limit` at a time. One failing item

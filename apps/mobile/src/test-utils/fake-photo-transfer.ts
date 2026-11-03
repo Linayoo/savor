@@ -39,6 +39,13 @@ export class FakePhotoTransfer implements PhotoTransfer {
     this.copies.delete(uri);
   }
 
+  async download(url: string, photoId: string) {
+    const content = await this.server.serveDownload(url);
+    const fileName = `${photoId}.jpg`;
+    this.files.set(fileName, content);
+    return fileName;
+  }
+
   // The app's deleteFiles
   delete = (fileNames: string[]) => {
     fileNames.forEach((name) => this.files.delete(name));

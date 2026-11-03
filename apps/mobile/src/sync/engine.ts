@@ -4,6 +4,7 @@ import { SyncError, type SyncApi, type SyncErrorKind } from "./api";
 import type { PhotoTransfer } from "./photo-transfer";
 import { pullChanges } from "./pull";
 import { pushPending } from "./push";
+import { downloadPhotos } from "./download";
 import { uploadPhotos } from "./upload";
 
 // - idle: nothing to do, or the last sync worked
@@ -146,7 +147,10 @@ export class SyncEngine {
         this.notifyChange();
         await pushPending(db, api);
       }
+      const downloads = await downloadPhotos(db, api, transfer, deleteFiles);
+      if (downloads.downloaded && !cancelled()) this.notifyChange();
       if (uploads.failure) throw uploads.failure;
+      if (downloads.failure) throw downloads.failure;
       if (cancelled()) return;
       this.failures = 0;
       this.setStatus({

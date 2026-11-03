@@ -1,3 +1,4 @@
+import { File } from "expo-file-system";
 import { ImageManipulator } from "expo-image-manipulator";
 import { photoTransfer } from "@/photos";
 import { SyncError } from "@/sync/api";
@@ -83,6 +84,35 @@ describe("photoTransfer", () => {
 
       await expect(
         photoTransfer.upload(form, "file:///cache/copy.jpg"),
+      ).rejects.toMatchObject({ kind: "unavailable" });
+    });
+  });
+
+  describe("download", () => {
+    const url =
+      "https://savor-photos.s3.eu-central-1.amazonaws.com/users/a/photos/p.jpg?X-Amz-Signature=s";
+
+    it("saves the photo into the photos folder, named after it, replacing an earlier try", async () => {
+      const downloadFileAsync = jest
+        .spyOn(File, "downloadFileAsync")
+        .mockImplementation(async (_, destination) => destination as File);
+
+      const name = await photoTransfer.download(url, "photo-1");
+
+      expect(name).toBe("photo-1.jpg");
+      const [calledUrl, destination, options] = downloadFileAsync.mock.calls[0];
+      expect(calledUrl).toBe(url);
+      expect((destination as File).uri).toMatch(/photos\/photo-1\.jpg$/);
+      expect(options).toEqual({ idempotent: true });
+    });
+
+    it("fails worth retrying when S3 refuses, as with an expired URL", async () => {
+      jest
+        .spyOn(File, "downloadFileAsync")
+        .mockRejectedValue(new Error("response has status 403"));
+
+      await expect(
+        photoTransfer.download(url, "photo-1"),
       ).rejects.toMatchObject({ kind: "unavailable" });
     });
   });

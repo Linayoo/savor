@@ -74,4 +74,19 @@ export const photoTransfer: PhotoTransfer = {
     const file = new File(uri);
     if (file.exists) file.delete();
   },
+
+  // Named after the photo, so a repeated download replaces the file
+  download: async (url, photoId) => {
+    if (!photosDir.exists) photosDir.create({ idempotent: true });
+    const name = `${photoId}.jpg`;
+    try {
+      await File.downloadFileAsync(url, new File(photosDir, name), {
+        idempotent: true,
+      });
+    } catch (error) {
+      // Offline, or an expired URL; the next sync asks for a new one
+      throw new SyncError("unavailable", String(error));
+    }
+    return name;
+  },
 };
