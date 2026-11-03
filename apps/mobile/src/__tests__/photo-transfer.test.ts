@@ -92,7 +92,12 @@ describe("photoTransfer", () => {
 
       await expect(
         photoTransfer.upload(form, "file:///cache/copy.jpg"),
-      ).rejects.toMatchObject({ kind: "unavailable" });
+      ).rejects.toEqual(
+        new SyncError(
+          "unavailable",
+          "Couldn't reach S3: TypeError: Network request failed",
+        ),
+      );
     });
   });
 

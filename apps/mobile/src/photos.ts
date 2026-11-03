@@ -61,8 +61,8 @@ export const photoTransfer: PhotoTransfer = {
     let response: Response;
     try {
       response = await fetch(url, { method: "POST", body: form });
-    } catch {
-      throw new SyncError("unavailable");
+    } catch (error) {
+      throw new SyncError("unavailable", `Couldn't reach S3: ${String(error)}`);
     }
     // An expired form is refused too; the next sync asks for a new one
     // S3's body names the refused condition
