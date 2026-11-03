@@ -18,16 +18,28 @@ export const moments = sqliteTable(
   (t) => [index("moments_timeline_idx").on(t.deletedAt, t.createdAt)],
 );
 
+// Photo records sync like moments (spec 006); their files follow. No foreign
+// key: a pulled photo can arrive before its moment.
+// - local: the file is here and not uploaded yet
+// - uploaded: the file is here and on the server
+// - remote: known from a pull, the file isn't here yet (no file_name)
+export type UploadState = "local" | "uploaded" | "remote";
+
 export const momentPhotos = sqliteTable("moment_photos", {
   id: text("id").primaryKey(),
-  momentId: text("moment_id")
-    .notNull()
-    .references(() => moments.id),
-  fileName: text("file_name").notNull(),
+  momentId: text("moment_id").notNull(),
+  fileName: text("file_name"),
   position: integer("position").notNull(),
   createdAt: integer("created_at").notNull(),
   updatedAt: integer("updated_at").notNull(),
   deletedAt: integer("deleted_at"),
+  pending: integer("pending").notNull().default(1),
+  uploadState: text("upload_state")
+    .$type<UploadState>()
+    .notNull()
+    .default("local"),
+  // Copied from pulls: when the server got the file, if it has
+  uploadedAt: integer("uploaded_at"),
 });
 
 // App state that must change in the same transaction as data

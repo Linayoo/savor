@@ -15,6 +15,13 @@
       "when": 1793615267822,
       "tag": "0001_moment_pending",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1793694404979,
+      "tag": "0002_photo_sync",
+      "breakpoints": true
     }
   ]
 }

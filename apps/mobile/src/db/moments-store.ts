@@ -36,6 +36,7 @@ export function listMoments(db: AppDb): Moment[] {
 
   const photosByMoment = new Map<string, string[]>();
   for (const { momentId, fileName } of photoRows) {
+    if (fileName === null) continue;
     photosByMoment.set(momentId, [
       ...(photosByMoment.get(momentId) ?? []),
       fileName,
@@ -132,7 +133,7 @@ export function deleteMoment(
       .where(live)
       .orderBy(asc(momentPhotos.position))
       .all()
-      .map((p) => p.fileName);
+      .flatMap((p) => (p.fileName === null ? [] : [p.fileName]));
 
     tx.update(moments)
       .set({ deletedAt: time, updatedAt: time, pending: 1 })

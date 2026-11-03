@@ -87,7 +87,7 @@ function applyMoment(
     .from(momentPhotos)
     .where(live)
     .all()
-    .map((p) => p.fileName);
+    .flatMap((p) => (p.fileName === null ? [] : [p.fileName]));
   tx.update(momentPhotos)
     .set({ deletedAt: pulled.deletedAt, updatedAt: pulled.updatedAt })
     .where(live)
