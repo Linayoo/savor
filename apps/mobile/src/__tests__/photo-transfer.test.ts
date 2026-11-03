@@ -40,33 +40,50 @@ describe("photoTransfer", () => {
     beforeEach(() => {
       fetchMock = jest.fn(async () => new Response(null, { status: 204 }));
       global.fetch = fetchMock;
-      // Jest has Node's FormData; the app sends React Native's, which takes
-      // a file as a uri
-      global.FormData = jest.requireActual(
+      // The app's FormData: React Native's, patched by Expo, whose fetch
+      // turns it into the request body
+      const reactNative = jest.requireActual(
         "react-native/Libraries/Network/FormData",
-      ).default;
+      );
+      const formData = reactNative.default ?? reactNative;
+      jest
+        .requireActual("expo/build/winter/FormData")
+        .installFormDataPatch(formData);
+      global.FormData = formData;
     });
 
-    it("POSTs the form's fields first and the file last", async () => {
+    it("sends a body Expo's fetch can encode: the form's fields first, then the file's bytes", async () => {
       await photoTransfer.upload(form, "file:///cache/copy.jpg");
 
       const [url, init] = fetchMock.mock.calls[0];
       expect(url).toBe(form.url);
       expect(init.method).toBe("POST");
-      const parts = (
-        init.body as FormData & {
-          getParts(): { fieldName: string; string?: string; uri?: string }[];
+      const body = init.body as FormData;
+      // Jest can't read files; the bytes come from the copy on the phone
+      for (const [, value] of body.entries()) {
+        if (typeof value === "object") {
+          // Not React Native's { uri, name, type }, which Expo's fetch refuses
+          expect(value).toBeInstanceOf(File);
+          expect((value as unknown as File).uri).toBe("file:///cache/copy.jpg");
+          Object.assign(value, {
+            bytes: async () => new TextEncoder().encode("JPEG BYTES"),
+          });
         }
-      ).getParts();
-      expect(parts.map((p) => p.fieldName)).toEqual([
-        "key",
-        "Content-Type",
-        "file",
-      ]);
-      expect(parts[2]).toMatchObject({
-        uri: "file:///cache/copy.jpg",
-        type: "image/jpeg",
-      });
+      }
+      const { convertFormDataAsync } = jest.requireActual(
+        "expo/build/winter/fetch/convertFormData",
+      );
+      const { body: encoded } = await convertFormDataAsync(body, "BOUNDARY");
+      const text = new TextDecoder().decode(encoded);
+
+      const names = [...text.matchAll(/form-data; name="([^"]+)"/g)].map(
+        (m) => m[1],
+      );
+      expect(names).toEqual(["key", "Content-Type", "file"]);
+      expect(text).toContain("\r\n\r\nusers/a/photos/p.jpg\r\n--BOUNDARY\r\n");
+      expect(text).toMatch(
+        /name="file"; filename="[^"]+"[\s\S]*JPEG BYTES\r\n--BOUNDARY--/,
+      );
     });
 
     it("fails worth retrying when S3 refuses the form, as an expired one", async () => {

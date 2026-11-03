@@ -52,12 +52,9 @@ export const photoTransfer: PhotoTransfer = {
     const form = new FormData();
     for (const [name, value] of Object.entries(fields))
       form.append(name, value);
-    // React Native's FormData sends a file given as a uri
-    form.append("file", {
-      uri,
-      name: "photo.jpg",
-      type: "image/jpeg",
-    } as unknown as Blob);
+    // Expo's fetch reads the file's bytes; it refuses React Native's
+    // { uri, name, type } parts
+    form.append("file", new File(uri) as unknown as Blob);
     let response: Response;
     try {
       response = await fetch(url, { method: "POST", body: form });
