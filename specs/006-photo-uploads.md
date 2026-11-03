@@ -109,7 +109,7 @@ Quality
 - [x] A test shows the spec 005 phone code still syncs against the new API (pull output with `uploadedAt`). Verified: old-phones.test.ts.
 - [x] Phone sync tests cover the photo record rules, both queues, retries, the missing-file case and two devices sharing photos through the fake server and fake storage. Verified: sync-push, sync-pull, sync-uploads and sync-two-devices tests.
 - [x] Mutation check: removing the ownership check in `createUpload`, or the "not pending" check for photo records on pull, makes a test fail. Verified: each removal fails exactly one test.
-- [ ] Terraform fmt and validate pass; plan shows no changes after apply. fmt and validate pass in CI; the plan after apply is still to be run.
+- [x] Terraform fmt and validate pass; plan shows no changes after apply. Verified: fmt and validate in CI; plan after apply shows no changes.
 - [x] `pnpm typecheck`, `pnpm lint`, `pnpm format:check` and `pnpm test` pass locally and in CI, and the iOS export passes. Verified: locally on every commit and in CI.
 
 Manual (two simulators)
