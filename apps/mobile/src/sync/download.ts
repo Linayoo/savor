@@ -3,6 +3,7 @@ import { and, asc, eq, isNotNull, isNull } from "drizzle-orm";
 import { momentPhotos, moments } from "../db/schema";
 import type { AppDb } from "../db/types";
 import type { SyncApi } from "./api";
+import { logSyncError } from "./log";
 import { forEachInParallel, type PhotoTransfer } from "./photo-transfer";
 
 // Downloads the photos other devices uploaded into the photos folder (spec
@@ -45,6 +46,7 @@ export async function downloadPhotos(
         photoIds: waiting.slice(i, i + MAX_DOWNLOAD_URLS),
       }));
     } catch (error) {
+      logSyncError("downloadUrls failed", error);
       errors.push(error);
       continue;
     }
@@ -53,7 +55,13 @@ export async function downloadPhotos(
       urls,
       3,
       async ({ photoId, url }) => {
-        const fileName = await transfer.download(url, photoId);
+        let fileName: string;
+        try {
+          fileName = await transfer.download(url, photoId);
+        } catch (error) {
+          logSyncError(`download failed for photo ${photoId}`, error);
+          throw error;
+        }
         const kept = db.transaction((tx) => {
           const still = tx
             .select({ id: momentPhotos.id })

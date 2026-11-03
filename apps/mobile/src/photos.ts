@@ -65,8 +65,13 @@ export const photoTransfer: PhotoTransfer = {
       throw new SyncError("unavailable");
     }
     // An expired form is refused too; the next sync asks for a new one
+    // S3's body names the refused condition
     if (!response.ok) {
-      throw new SyncError("unavailable", `S3 answered ${response.status}`);
+      const body = await response.text().catch(() => "");
+      throw new SyncError(
+        "unavailable",
+        `S3 answered ${response.status}: ${body}`,
+      );
     }
   },
 

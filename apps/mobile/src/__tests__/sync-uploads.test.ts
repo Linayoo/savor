@@ -204,4 +204,51 @@ describe("the upload queue", () => {
 
     expect(statuses.some((s) => s.activity)).toBe(false);
   });
+
+  describe("in development", () => {
+    let log: jest.SpyInstance;
+    beforeEach(() => {
+      log = jest.spyOn(console, "log").mockImplementation(() => undefined);
+    });
+    afterEach(() => log.mockRestore());
+
+    it.each(["createUpload", "upload", "confirmUpload"] as const)(
+      "logs which step failed (%s), for which photo, with the error",
+      async (step) => {
+        const { server, keep, sync } = setup();
+        const { idOf } = keep("Walk", ["w1.jpg"]);
+        server.failNext(step);
+
+        await sync();
+
+        expect(log).toHaveBeenCalledWith(
+          `[sync] ${step} failed for photo ${idOf("w1.jpg")}: SyncError: unavailable`,
+        );
+      },
+    );
+
+    it("logs a failed upload copy", async () => {
+      const { transfer, keep, sync } = setup();
+      const { idOf } = keep("Walk", ["w1.jpg"]);
+      transfer.uploadCopy = async () => {
+        throw new Error("Could not decode the image");
+      };
+
+      await sync();
+
+      expect(log).toHaveBeenCalledWith(
+        `[sync] copy failed for photo ${idOf("w1.jpg")}: Error: Could not decode the image`,
+      );
+    });
+
+    it("doesn't log a photo the server no longer has", async () => {
+      const { server, keep, sync } = setup();
+      keep("Walk", ["w1.jpg"]);
+      server.failNext("createUpload", "notFound");
+
+      await sync();
+
+      expect(log).not.toHaveBeenCalled();
+    });
+  });
 });

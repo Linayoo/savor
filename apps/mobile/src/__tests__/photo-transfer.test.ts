@@ -71,12 +71,20 @@ describe("photoTransfer", () => {
 
     it("fails worth retrying when S3 refuses the form, as an expired one", async () => {
       fetchMock.mockResolvedValue(
-        new Response("AccessDenied", { status: 403 }),
+        new Response(
+          "<Error><Code>AccessDenied</Code><Message>Invalid according to Policy</Message></Error>",
+          { status: 403 },
+        ),
       );
 
       await expect(
         photoTransfer.upload(form, "file:///cache/copy.jpg"),
-      ).rejects.toEqual(new SyncError("unavailable", "S3 answered 403"));
+      ).rejects.toEqual(
+        new SyncError(
+          "unavailable",
+          "S3 answered 403: <Error><Code>AccessDenied</Code><Message>Invalid according to Policy</Message></Error>",
+        ),
+      );
     });
 
     it("fails worth retrying without a connection", async () => {

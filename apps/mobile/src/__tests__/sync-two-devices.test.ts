@@ -301,6 +301,22 @@ describe("photos on two devices", () => {
     expect(two.filesOf()).toHaveLength(1);
   });
 
+  it("logs a failed download in development, with the photo and error", async () => {
+    const log = jest.spyOn(console, "log").mockImplementation(() => undefined);
+    const { server, one, two } = twoDevices();
+    one.keep("Picnic", "nature", ["p1.jpg"]);
+    await one.sync();
+    server.failNext("download");
+
+    await two.sync();
+
+    const [photo] = two.photoRows();
+    expect(log).toHaveBeenCalledWith(
+      `[sync] download failed for photo ${photo.id}: SyncError: unavailable`,
+    );
+    log.mockRestore();
+  });
+
   it("keeps downloading the other photos when one fails", async () => {
     const { server, one, two } = twoDevices();
     one.keep("Picnic", "nature", ["p1.jpg", "p2.jpg", "p3.jpg"]);

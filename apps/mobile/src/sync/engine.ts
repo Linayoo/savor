@@ -1,6 +1,7 @@
 import { getMeta } from "../db/app-meta";
 import type { AppDb } from "../db/types";
 import { SyncError, type SyncApi, type SyncErrorKind } from "./api";
+import { logSyncError } from "./log";
 import type { PhotoTransfer } from "./photo-transfer";
 import { pullChanges } from "./pull";
 import { pushPending } from "./push";
@@ -178,7 +179,9 @@ export class SyncEngine {
         lastSyncedAt: getMeta(db, "lastSyncedAt"),
       });
     } catch (error) {
-      if (!cancelled()) this.fail(error);
+      if (cancelled()) return;
+      logSyncError("sync failed", error);
+      this.fail(error);
     }
   }
 
