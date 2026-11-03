@@ -140,7 +140,7 @@ export function deleteMoment(
       .where(and(eq(moments.id, id), isNull(moments.deletedAt)))
       .run();
     tx.update(momentPhotos)
-      .set({ deletedAt: time, updatedAt: time })
+      .set({ deletedAt: time, updatedAt: time, pending: 1 })
       .where(live)
       .run();
 

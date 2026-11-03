@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { moments } from "@/db/schema";
+import { momentPhotos, moments } from "@/db/schema";
 import { deleteMoment, insertMoment, updateMoment } from "@/db/moments-store";
 import type { AppDb } from "@/db/types";
 import { SyncError } from "@/sync/api";
@@ -14,9 +14,13 @@ function setup() {
   const server = new FakeSyncServer();
   let t = start;
   const deps = { newId: randomUUID, now: () => t };
-  const keep = (text: string, kind?: "meal" | "film") => {
+  const keep = (
+    text: string,
+    kind?: "meal" | "film",
+    photos: string[] = [],
+  ) => {
     t += 1000;
-    return insertMoment(db, { text, photos: [], kind }, deps);
+    return insertMoment(db, { text, photos, kind }, deps);
   };
   const edit = (id: string, text: string, kind?: "meal" | "film") => {
     t += 1000;
@@ -28,6 +32,13 @@ function setup() {
   };
   return { db, server, api: server.api("user-a"), keep, edit, remove };
 }
+
+const pendingPhotos = (db: AppDb) =>
+  db
+    .select()
+    .from(momentPhotos)
+    .all()
+    .filter((p) => p.pending === 1);
 
 const pendingTexts = (db: AppDb) =>
   db
@@ -134,6 +145,84 @@ describe("pushPending", () => {
 
     expect(server.pushes).toHaveLength(2);
     expect(pendingTexts(db)).toEqual(["edited"]);
+  });
+
+  it("sends pending photo records after their moments, without file details, and clears pending", async () => {
+    const { db, server, api, keep } = setup();
+    const walk = keep("Walk", undefined, ["w1.jpg", "w2.jpg"]);
+    const [first, second] = db.select().from(momentPhotos).all();
+
+    await pushPending(db, api);
+
+    expect(server.pushes).toHaveLength(1);
+    expect(server.pushes[0].input.moments.map((m) => m.id)).toEqual([walk.id]);
+    expect(server.pushes[0].input.photos).toHaveLength(2);
+    expect(server.pushes[0].input.photos).toEqual(
+      expect.arrayContaining(
+        [first, second].map((p) => ({
+          id: p.id,
+          momentId: walk.id,
+          position: p.position,
+          createdAt: walk.createdAt,
+          updatedAt: walk.createdAt,
+          deletedAt: null,
+        })),
+      ),
+    );
+    expect(pendingPhotos(db)).toEqual([]);
+  });
+
+  it("sends a deleted moment's photos as tombstones", async () => {
+    const { db, server, api, keep, remove } = setup();
+    const walk = keep("Walk", undefined, ["w1.jpg"]);
+    await pushPending(db, api);
+    remove(walk.id);
+
+    await pushPending(db, api);
+
+    expect(server.photosOf("user-a")).toEqual([
+      expect.objectContaining({ momentId: walk.id, deletedAt: start + 2000 }),
+    ]);
+    expect(pendingPhotos(db)).toEqual([]);
+  });
+
+  it("fits moments and photos in shared batches of at most 100, moments first", async () => {
+    const { db, server, api, keep } = setup();
+    for (let i = 0; i < 60; i++) keep(`moment ${i}`, undefined, [`${i}.jpg`]);
+
+    await pushPending(db, api);
+
+    expect(
+      server.pushes.map(({ input }) => [
+        input.moments.length,
+        input.photos.length,
+      ]),
+    ).toEqual([
+      [60, 40],
+      [0, 20],
+    ]);
+    expect(server.photosOf("user-a")).toHaveLength(60);
+    expect(pendingPhotos(db)).toEqual([]);
+  });
+
+  it("keeps a photo deleted during the push pending, and pushes the delete next time", async () => {
+    const { db, server, api, keep, remove } = setup();
+    const walk = keep("Walk", undefined, ["w1.jpg"]);
+    const held = server.holdNextPush();
+
+    const push = pushPending(db, api);
+    await held.started;
+    remove(walk.id);
+    held.release();
+    await push;
+
+    expect(server.photosOf("user-a")[0].deletedAt).toBeNull();
+    expect(pendingPhotos(db)).toHaveLength(1);
+
+    await pushPending(db, api);
+
+    expect(server.photosOf("user-a")[0].deletedAt).not.toBeNull();
+    expect(pendingPhotos(db)).toEqual([]);
   });
 
   it("stops at a conflict, reports it and leaves the moments pending", async () => {

@@ -1,3 +1,4 @@
+import { asc } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import type { MomentKind } from "@savor/shared";
 import {
@@ -6,6 +7,7 @@ import {
   listMoments,
   updateMoment,
 } from "@/db/moments-store";
+import { momentPhotos } from "@/db/schema";
 import { SyncEngine } from "@/sync/engine";
 import { createTestDb } from "@/test-utils/db";
 import { FakeSyncServer } from "@/test-utils/fake-sync-server";
@@ -36,6 +38,12 @@ function twoDevices() {
         updateMoment(db, id, { text, kind }, deps),
       remove: (id: string) => deleteMoment(db, id, deps),
       moments: () => listMoments(db),
+      photoRows: () =>
+        db
+          .select()
+          .from(momentPhotos)
+          .orderBy(asc(momentPhotos.position))
+          .all(),
     };
   };
 
@@ -140,19 +148,21 @@ describe("two devices", () => {
     expect(two.moments()[0].text).toBe("Film night");
   });
 
-  it("syncs a moment's text and kind, while its photos stay on the device that took them", async () => {
+  it("brings photo records across before their files, in the same order", async () => {
     const { one, two } = twoDevices();
-    one.keep("Picnic", "nature", ["p1.jpg"]);
+    one.keep("Picnic", "nature", ["p1.jpg", "p2.jpg"]);
 
     await one.sync();
     await two.sync();
 
-    expect(one.moments()[0].photos).toEqual(["p1.jpg"]);
-    expect(two.moments()[0]).toMatchObject({
-      text: "Picnic",
-      kind: "nature",
-      photos: [],
-    });
+    expect(one.moments()[0].photos).toEqual(["p1.jpg", "p2.jpg"]);
+    expect(two.photoRows()).toEqual(
+      one.photoRows().map((photo) => ({
+        ...photo,
+        fileName: null,
+        uploadState: "remote",
+      })),
+    );
   });
 
   it("sends moments kept while offline once the connection is back", async () => {

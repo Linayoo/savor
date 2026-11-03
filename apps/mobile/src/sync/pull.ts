@@ -28,13 +28,16 @@ export async function pullChanges(
     const page = parsePage(await api.pull({ sinceVersion, limit: pageSize }));
 
     const deletedFiles = db.transaction((tx) => {
-      const files = page.moments.flatMap((pulled) => applyMoment(tx, pulled));
+      const files = [
+        ...page.moments.flatMap((pulled) => applyMoment(tx, pulled)),
+        ...page.photos.flatMap((pulled) => applyPhoto(tx, pulled)),
+      ];
       setMeta(tx, "lastPulledVersion", page.version);
       return files;
     });
 
     if (deletedFiles.length > 0) deleteFiles(deletedFiles);
-    changed ||= page.moments.length > 0;
+    changed ||= page.moments.length + page.photos.length > 0;
     hasMore = page.hasMore;
   }
 
@@ -48,8 +51,7 @@ function parsePage(page: PullOutput): PullOutput {
   return parsed.data;
 }
 
-// Returns the file names of photos the pulled moment's delete removed.
-// Pulled photo records are ignored until spec 006.
+// Returns the file names of photos the pulled moment's delete removed
 function applyMoment(
   tx: AppDb,
   { version: _, ...pulled }: PullOutput["moments"][number],
@@ -93,4 +95,43 @@ function applyMoment(
     .where(live)
     .run();
   return fileNames;
+}
+
+// Photo records follow the moments' rules (spec 006); a new one has no file
+// here yet. Returns the file name if the pulled delete removed one.
+function applyPhoto(
+  tx: AppDb,
+  { version: _, ...pulled }: PullOutput["photos"][number],
+): string[] {
+  const local = tx
+    .select({
+      pending: momentPhotos.pending,
+      deletedAt: momentPhotos.deletedAt,
+      fileName: momentPhotos.fileName,
+    })
+    .from(momentPhotos)
+    .where(eq(momentPhotos.id, pulled.id))
+    .get();
+
+  if (!local) {
+    tx.insert(momentPhotos)
+      .values({ ...pulled, fileName: null, pending: 0, uploadState: "remote" })
+      .run();
+    return [];
+  }
+
+  const isDelete = pulled.deletedAt !== null;
+  if (local.pending === 1 && !isDelete) return [];
+  // A delete is final, as on the server; a moment deleted here or in a pull
+  // tombstones its photos before the server may know
+  if (local.deletedAt !== null && !isDelete) return [];
+
+  tx.update(momentPhotos)
+    .set({ ...pulled, pending: 0 })
+    .where(eq(momentPhotos.id, pulled.id))
+    .run();
+  if (!isDelete || local.deletedAt !== null || local.fileName === null) {
+    return [];
+  }
+  return [local.fileName];
 }

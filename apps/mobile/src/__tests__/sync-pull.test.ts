@@ -228,26 +228,170 @@ describe("pullChanges", () => {
     expect(getMeta(db, "lastPulledVersion")).toBe(2);
   });
 
-  it("ignores photo records until spec 006", async () => {
-    const { db, server, pull } = setup();
-    const walk = keepSynced(db, ["w1.jpg"]);
-    const photo: PhotoChange = {
+  describe("photo records", () => {
+    const photoChange = (c: Partial<PhotoChange> = {}): PhotoChange => ({
       id: randomUUID(),
-      momentId: walk.id,
+      momentId: randomUUID(),
       position: 0,
       createdAt: t,
-      updatedAt: t + 5000,
-      deletedAt: t + 5000,
+      updatedAt: t,
+      deletedAt: null,
+      ...c,
+    });
+    const photoRow = (db: AppDb, id: string) =>
+      db.select().from(momentPhotos).where(eq(momentPhotos.id, id)).get();
+    // A photo this phone kept itself, already pushed
+    const keptPhoto = (db: AppDb) => {
+      const walk = keepSynced(db, ["w1.jpg"]);
+      db.update(momentPhotos).set({ pending: 0 }).run();
+      const [photo] = db.select().from(momentPhotos).all();
+      return { walk, photo };
     };
-    server.seed("user-a", {
-      moments: [change({ id: walk.id, text: "Walk", kind: "nature" })],
-      photos: [photo],
+
+    it("adds a photo from another device as remote, with no file, and when it was uploaded", async () => {
+      const { db, server, pull } = setup();
+      const walk = change();
+      const photo = photoChange({ momentId: walk.id, position: 1 });
+      server.seed("user-a", { moments: [walk], photos: [photo] });
+      server.markUploaded("user-a", photo.id, t + 7000);
+
+      expect(await pull()).toEqual({ changed: true });
+
+      expect(photoRow(db, photo.id)).toEqual({
+        ...photo,
+        fileName: null,
+        pending: 0,
+        uploadState: "remote",
+        uploadedAt: t + 7000,
+      });
     });
 
-    await pull();
+    it("adds a photo that isn't uploaded yet with no uploadedAt", async () => {
+      const { db, server, pull } = setup();
+      const photo = photoChange();
+      server.seed("user-a", { moments: [], photos: [photo] });
 
-    expect(listMoments(db)[0].photos).toEqual(["w1.jpg"]);
-    expect(getMeta(db, "lastPulledVersion")).toBe(2);
+      await pull();
+
+      expect(photoRow(db, photo.id)).toMatchObject({
+        uploadState: "remote",
+        uploadedAt: null,
+      });
+    });
+
+    it("stores a photo that arrives before its moment", async () => {
+      const { db, server, pull, seed } = setup();
+      const walk = change();
+      const photo = photoChange({ momentId: walk.id });
+      server.seed("user-a", { moments: [walk], photos: [photo] });
+      // The moment's edit moves it after the photo
+      seed({ ...walk, text: "Long walk", updatedAt: t + 5000 });
+
+      await pull(1);
+
+      expect(photoRow(db, photo.id)?.momentId).toBe(walk.id);
+      expect(row(db, walk.id)?.text).toBe("Long walk");
+    });
+
+    it("copies uploadedAt to a photo kept here, keeping its file and state", async () => {
+      const { db, server, pull } = setup();
+      const { walk, photo } = keptPhoto(db);
+      server.seed("user-a", {
+        moments: [change({ id: walk.id })],
+        photos: [photoChange({ id: photo.id, momentId: walk.id })],
+      });
+      server.markUploaded("user-a", photo.id, t + 7000);
+
+      await pull();
+
+      expect(photoRow(db, photo.id)).toMatchObject({
+        fileName: "w1.jpg",
+        uploadState: "local",
+        uploadedAt: t + 7000,
+        pending: 0,
+      });
+    });
+
+    it("skips a photo with local changes, which win at the next push", async () => {
+      const { db, server, pull } = setup();
+      const { walk, photo } = keptPhoto(db);
+      db.update(momentPhotos).set({ pending: 1 }).run();
+      server.seed("user-a", {
+        moments: [],
+        photos: [
+          photoChange({
+            id: photo.id,
+            momentId: walk.id,
+            position: 3,
+            updatedAt: t + 5000,
+          }),
+        ],
+      });
+
+      await pull();
+
+      expect(photoRow(db, photo.id)).toMatchObject({
+        position: 0,
+        pending: 1,
+      });
+    });
+
+    it("keeps a photo deleted here deleted, as the server does", async () => {
+      const { db, server, pull, seed } = setup();
+      const { walk, photo } = keptPhoto(db);
+      seed(change({ id: walk.id, updatedAt: t + 5000, deletedAt: t + 5000 }));
+      server.seed("user-a", {
+        moments: [],
+        photos: [photoChange({ id: photo.id, momentId: walk.id })],
+      });
+      server.markUploaded("user-a", photo.id, t + 7000);
+
+      await pull();
+
+      expect(photoRow(db, photo.id)?.deletedAt).toBe(t + 5000);
+    });
+
+    it("applies a photo delete even over local changes, and deletes its file after", async () => {
+      const { db, server, deleteFiles, pull } = setup();
+      const { walk, photo } = keptPhoto(db);
+      db.update(momentPhotos).set({ pending: 1 }).run();
+      server.seed("user-a", {
+        moments: [],
+        photos: [
+          photoChange({
+            id: photo.id,
+            momentId: walk.id,
+            updatedAt: t + 5000,
+            deletedAt: t + 5000,
+          }),
+        ],
+      });
+
+      await pull();
+
+      expect(photoRow(db, photo.id)).toMatchObject({
+        fileName: "w1.jpg",
+        deletedAt: t + 5000,
+        pending: 0,
+      });
+      expect(listMoments(db)[0].photos).toEqual([]);
+      expect(deleteFiles).toHaveBeenCalledWith(["w1.jpg"]);
+    });
+
+    it("deletes no file for a photo that never arrived", async () => {
+      const { server, deleteFiles, pull } = setup();
+      const photo = photoChange();
+      server.seed("user-a", { moments: [], photos: [photo] });
+      await pull();
+      server.seed("user-a", {
+        moments: [],
+        photos: [{ ...photo, updatedAt: t + 5000, deletedAt: t + 5000 }],
+      });
+
+      await pull();
+
+      expect(deleteFiles).not.toHaveBeenCalled();
+    });
   });
 
   it("records when it finished, and whether anything changed", async () => {

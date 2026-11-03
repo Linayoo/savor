@@ -61,6 +61,21 @@ export class FakeSyncServer {
       .map(({ userId: _, version: __, ...m }) => m);
   }
 
+  photosOf(userId: string) {
+    return [...this.photos.values()]
+      .filter((p) => p.userId === userId)
+      .map(({ userId: _, version: __, ...p }) => p);
+  }
+
+  // As a confirmed upload does: sets uploadedAt with a new version
+  markUploaded(userId: string, photoId: string, uploadedAt: number) {
+    const photo = this.photos.get(photoId);
+    if (!photo || photo.userId !== userId) throw new Error("No such photo");
+    const version = (this.versions.get(userId) ?? 0) + 1;
+    this.versions.set(userId, version);
+    this.photos.set(photoId, { ...photo, uploadedAt, version });
+  }
+
   // Adds changes directly, as other devices' pushes would, without the
   // per-push limit
   seed(userId: string, input: PushInput) {
