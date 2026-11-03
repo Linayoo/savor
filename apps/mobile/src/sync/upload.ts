@@ -13,7 +13,7 @@ export async function uploadPhotos(
   db: AppDb,
   api: SyncApi,
   transfer: PhotoTransfer,
-  now: () => number,
+  { now, onStart }: { now: () => number; onStart: () => void },
 ): Promise<{ missingFiles: boolean; failure: unknown }> {
   const waiting = db
     .select({ id: momentPhotos.id, fileName: momentPhotos.fileName })
@@ -28,6 +28,7 @@ export async function uploadPhotos(
     )
     .orderBy(asc(momentPhotos.createdAt), asc(momentPhotos.position))
     .all();
+  if (waiting.length > 0) onStart();
 
   let missingFiles = false;
   const errors = await forEachInParallel(waiting, 3, async (photo) => {

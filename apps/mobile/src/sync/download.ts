@@ -14,7 +14,10 @@ export async function downloadPhotos(
   db: AppDb,
   api: SyncApi,
   transfer: PhotoTransfer,
-  deleteFiles: (fileNames: string[]) => void,
+  {
+    deleteFiles,
+    onStart,
+  }: { deleteFiles: (fileNames: string[]) => void; onStart: () => void },
 ): Promise<{ downloaded: boolean; failure: unknown }> {
   const waiting = db
     .select({ id: momentPhotos.id })
@@ -31,6 +34,7 @@ export async function downloadPhotos(
     .orderBy(asc(moments.createdAt), asc(momentPhotos.position))
     .all()
     .map((photo) => photo.id);
+  if (waiting.length > 0) onStart();
 
   let downloaded = false;
   const errors: unknown[] = [];

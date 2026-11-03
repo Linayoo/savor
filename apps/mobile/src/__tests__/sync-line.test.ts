@@ -15,6 +15,19 @@ describe("syncLine", () => {
     expect(syncLine(idle(lastSyncedAt), true, now)).toBe(line);
   });
 
+  it.each([
+    ["uploading", "Uploading photos"],
+    ["downloading", "Downloading photos"],
+  ] as const)("says when it's %s photos", (activity, line) => {
+    expect(
+      syncLine(
+        { phase: "syncing", activity, lastSyncedAt: now - 60_000 },
+        true,
+        now,
+      ),
+    ).toBe(line);
+  });
+
   it("waits for a connection while offline", () => {
     expect(syncLine(idle(now - 60_000), false, now)).toBe(
       "Waiting for a connection",

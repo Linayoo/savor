@@ -8,11 +8,17 @@ import { downloadPhotos } from "./download";
 import { uploadPhotos } from "./upload";
 
 // - idle: nothing to do, or the last sync worked
+// - syncing: with an activity while it moves photo files (spec 006)
 // - retrying: the last sync failed and another try is scheduled
 // - stopped: the last sync failed in a way retrying won't fix; the next
 //   trigger tries again
 export type SyncStatus =
-  | { phase: "idle" | "syncing"; lastSyncedAt: number | null }
+  | { phase: "idle"; lastSyncedAt: number | null }
+  | {
+      phase: "syncing";
+      activity?: "uploading" | "downloading";
+      lastSyncedAt: number | null;
+    }
   | {
       phase: "retrying";
       problem: "unavailable";
@@ -142,12 +148,26 @@ export class SyncEngine {
       if (cancelled()) return;
       if (changed) this.notifyChange();
 
-      const uploads = await uploadPhotos(db, api, transfer, now);
+      const activity = (name: "uploading" | "downloading") => () => {
+        if (cancelled()) return;
+        this.setStatus({
+          phase: "syncing",
+          activity: name,
+          lastSyncedAt: getMeta(db, "lastSyncedAt"),
+        });
+      };
+      const uploads = await uploadPhotos(db, api, transfer, {
+        now,
+        onStart: activity("uploading"),
+      });
       if (uploads.missingFiles) {
         this.notifyChange();
         await pushPending(db, api);
       }
-      const downloads = await downloadPhotos(db, api, transfer, deleteFiles);
+      const downloads = await downloadPhotos(db, api, transfer, {
+        deleteFiles,
+        onStart: activity("downloading"),
+      });
       if (downloads.downloaded && !cancelled()) this.notifyChange();
       if (uploads.failure) throw uploads.failure;
       if (downloads.failure) throw downloads.failure;

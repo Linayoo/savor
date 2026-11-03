@@ -178,4 +178,30 @@ describe("the upload queue", () => {
 
     expect(calls("createUpload")).toHaveLength(1);
   });
+
+  it("says it's uploading photos while it is, then that it synced", async () => {
+    const { engine, keep, sync } = setup();
+    const statuses: unknown[] = [];
+    engine.subscribe((status) => statuses.push(status));
+    keep("Walk", ["w1.jpg"]);
+
+    await sync();
+
+    expect(statuses).toEqual([
+      { phase: "syncing", lastSyncedAt: null },
+      { phase: "syncing", activity: "uploading", lastSyncedAt: t },
+      { phase: "idle", lastSyncedAt: t },
+    ]);
+  });
+
+  it("doesn't mention photos when there are none to move", async () => {
+    const { engine, keep, sync } = setup();
+    const statuses: { phase: string; activity?: string }[] = [];
+    engine.subscribe((status) => statuses.push(status));
+    keep("Walk", []);
+
+    await sync();
+
+    expect(statuses.some((s) => s.activity)).toBe(false);
+  });
 });

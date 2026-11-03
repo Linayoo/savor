@@ -35,6 +35,7 @@ function twoDevices() {
     const deps = { newId: randomUUID, now };
     return {
       db,
+      engine,
       transfer,
       deleteFiles,
       sync: () => engine.sync().then(() => engine.status),
@@ -238,6 +239,20 @@ describe("photos on two devices", () => {
     await two.sync();
 
     expect(two.filesOf()).toHaveLength(1);
+  });
+
+  it("says it's downloading photos while it is", async () => {
+    const { one, two } = twoDevices();
+    one.keep("Picnic", "nature", ["p1.jpg"]);
+    await one.sync();
+    const activities: (string | undefined)[] = [];
+    two.engine.subscribe((s) => {
+      if (s.phase === "syncing") activities.push(s.activity);
+    });
+
+    await two.sync();
+
+    expect(activities).toEqual([undefined, "downloading"]);
   });
 
   it("downloads each photo once", async () => {
