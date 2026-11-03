@@ -46,6 +46,11 @@ function twoDevices() {
         updateMoment(db, id, { text, kind }, deps),
       remove: (id: string) => deleteMoment(db, id, deps),
       moments: () => listMoments(db),
+      // The file names of the first moment's photos that are here
+      filesOf: () =>
+        (listMoments(db)[0]?.photos ?? []).flatMap((p) =>
+          p.fileName === null ? [] : [p.fileName],
+        ),
       photoRows: () =>
         db
           .select()
@@ -165,7 +170,7 @@ describe("two devices", () => {
     await one.sync();
     await two.sync();
 
-    expect(one.moments()[0].photos).toEqual(["p1.jpg", "p2.jpg"]);
+    expect(one.filesOf()).toEqual(["p1.jpg", "p2.jpg"]);
     const sameRecord = ({ id, momentId, position }: PhotoRow) => ({
       id,
       momentId,
@@ -212,7 +217,7 @@ describe("photos on two devices", () => {
     expect(two.moments()).toEqual([
       expect.objectContaining({
         id: picnic.id,
-        photos: ids.map((id) => `${id}.jpg`),
+        photos: ids.map((id) => ({ id, fileName: `${id}.jpg` })),
       }),
     ]);
     expect(two.transfer.files.get(`${ids[0]}.jpg`)).toBe(
@@ -232,7 +237,7 @@ describe("photos on two devices", () => {
     await one.sync();
     await two.sync();
 
-    expect(two.moments()[0].photos).toHaveLength(1);
+    expect(two.filesOf()).toHaveLength(1);
   });
 
   it("downloads each photo once", async () => {
@@ -264,7 +269,7 @@ describe("photos on two devices", () => {
     await jest.advanceTimersByTimeAsync(5_000);
     await two.sync();
 
-    expect(two.moments()[0].photos).toHaveLength(1);
+    expect(two.filesOf()).toHaveLength(1);
   });
 
   it("retries a failed download with backoff", async () => {
@@ -274,11 +279,11 @@ describe("photos on two devices", () => {
     server.failNext("download");
 
     expect((await two.sync()).phase).toBe("retrying");
-    expect(two.moments()[0].photos).toEqual([]);
+    expect(two.filesOf()).toEqual([]);
 
     await jest.advanceTimersByTimeAsync(5_000);
 
-    expect(two.moments()[0].photos).toHaveLength(1);
+    expect(two.filesOf()).toHaveLength(1);
   });
 
   it("keeps downloading the other photos when one fails", async () => {
@@ -289,7 +294,7 @@ describe("photos on two devices", () => {
 
     await two.sync();
 
-    expect(two.moments()[0].photos).toHaveLength(2);
+    expect(two.filesOf()).toHaveLength(2);
   });
 
   it("asks for at most 50 download URLs at a time", async () => {
@@ -304,7 +309,7 @@ describe("photos on two devices", () => {
     await two.sync();
 
     expect(downloadCalls(server)).toEqual([50, 10]);
-    expect(two.moments()[0].photos).toHaveLength(60);
+    expect(two.filesOf()).toHaveLength(60);
   });
 
   it("removes the photos of a deleted moment from the other device and the bucket", async () => {
@@ -312,7 +317,7 @@ describe("photos on two devices", () => {
     const picnic = one.keep("Picnic", "nature", ["p1.jpg"]);
     await one.sync();
     await two.sync();
-    const downloaded = two.moments()[0].photos!;
+    const downloaded = two.filesOf();
 
     one.remove(picnic.id);
     await one.sync();

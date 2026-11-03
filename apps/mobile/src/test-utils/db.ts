@@ -34,3 +34,7 @@ export function seedMoments(
     ),
   );
 }
+
+// Matches a moment's photos by file name, whatever their ids
+export const photosNamed = (...fileNames: (string | null)[]) =>
+  fileNames.map((fileName) => ({ id: expect.any(String), fileName }));

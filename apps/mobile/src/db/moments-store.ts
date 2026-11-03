@@ -5,10 +5,13 @@ import { momentPhotos, moments } from "./schema";
 import type { AppDb } from "./types";
 
 // The shape the screens use; they don't need to know about SQLite
+// fileName is null while the photo is on its way from another device
+export type MomentPhoto = { id: string; fileName: string | null };
+
 export type Moment = {
   id: string;
   text: string;
-  photos?: string[];
+  photos?: MomentPhoto[];
   kind?: MomentKind;
   createdAt: number;
 };
@@ -26,6 +29,7 @@ export function listMoments(db: AppDb): Moment[] {
     .all();
   const photoRows = db
     .select({
+      id: momentPhotos.id,
       momentId: momentPhotos.momentId,
       fileName: momentPhotos.fileName,
     })
@@ -34,12 +38,11 @@ export function listMoments(db: AppDb): Moment[] {
     .orderBy(asc(momentPhotos.position))
     .all();
 
-  const photosByMoment = new Map<string, string[]>();
-  for (const { momentId, fileName } of photoRows) {
-    if (fileName === null) continue;
+  const photosByMoment = new Map<string, MomentPhoto[]>();
+  for (const { id, momentId, fileName } of photoRows) {
     photosByMoment.set(momentId, [
       ...(photosByMoment.get(momentId) ?? []),
-      fileName,
+      { id, fileName },
     ]);
   }
 
@@ -59,6 +62,7 @@ export function insertMoment(
 ): Moment {
   const id = newId();
   const time = now();
+  const photos = input.photos.map((fileName) => ({ id: newId(), fileName }));
 
   db.transaction((tx) => {
     tx.insert(moments)
@@ -70,11 +74,11 @@ export function insertMoment(
         updatedAt: time,
       })
       .run();
-    if (input.photos.length > 0) {
+    if (photos.length > 0) {
       tx.insert(momentPhotos)
         .values(
-          input.photos.map((fileName, position) => ({
-            id: newId(),
+          photos.map(({ id: photoId, fileName }, position) => ({
+            id: photoId,
             momentId: id,
             fileName,
             position,
@@ -89,7 +93,7 @@ export function insertMoment(
   return {
     id,
     text: input.text,
-    photos: input.photos,
+    photos,
     createdAt: time,
     ...(input.kind && { kind: input.kind }),
   };

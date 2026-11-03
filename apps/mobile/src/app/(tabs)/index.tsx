@@ -244,22 +244,32 @@ export default function Index() {
               {item.text ? <Text style={styles.text}>{item.text}</Text> : null}
               {item.photos?.length ? (
                 <View style={styles.photoRow}>
-                  {item.photos.map((p) => (
-                    <Pressable
-                      key={p}
-                      onPress={() =>
-                        router.push({
-                          pathname: "/moment/[id]",
-                          params: { id: item.id, photo: p },
-                        })
-                      }
-                    >
-                      <Image
-                        source={{ uri: photoUri(p) }}
-                        style={styles.photo}
+                  {item.photos.map((p) =>
+                    // Still on its way from another device
+                    p.fileName === null ? (
+                      <View
+                        key={p.id}
+                        style={[styles.photo, styles.photoOnItsWay]}
+                        accessibilityLabel="Photo on its way"
                       />
-                    </Pressable>
-                  ))}
+                    ) : (
+                      <Pressable
+                        key={p.id}
+                        accessibilityLabel="Open photo"
+                        onPress={() =>
+                          router.push({
+                            pathname: "/moment/[id]",
+                            params: { id: item.id, photo: p.id },
+                          })
+                        }
+                      >
+                        <Image
+                          source={{ uri: photoUri(p.fileName) }}
+                          style={styles.photo}
+                        />
+                      </Pressable>
+                    ),
+                  )}
                 </View>
               ) : null}
             </View>
@@ -372,4 +382,5 @@ const styles = StyleSheet.create({
   },
   photoRow: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 8 },
   photo: { width: 88, height: 88, borderRadius: 10 },
+  photoOnItsWay: { backgroundColor: "#EFE3D2" },
 });

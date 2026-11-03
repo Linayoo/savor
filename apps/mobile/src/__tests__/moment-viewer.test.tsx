@@ -1,5 +1,7 @@
-import { render, screen } from "@testing-library/react-native";
+import { fireEvent, render, screen } from "@testing-library/react-native";
+import { eq } from "drizzle-orm";
 import MomentPhotos from "@/app/moment/[id]";
+import { momentPhotos } from "@/db/schema";
 import { MomentsProvider } from "@/moments";
 import { createTestDb, seedMoments } from "@/test-utils/db";
 
@@ -16,10 +18,19 @@ const moment = {
   createdAt: Date.UTC(2026, 9, 1, 9, 30),
 };
 
-async function renderViewer(seed: Parameters<typeof seedMoments>[1][number]) {
+async function renderViewer(
+  seed: Parameters<typeof seedMoments>[1][number],
+  { openAt = 0, onItsWay = [] as number[] } = {},
+) {
   const db = createTestDb();
   const [stored] = seedMoments(db, [seed]);
-  mockParams = { id: stored.id, photo: "1-a.jpg" };
+  for (const i of onItsWay) {
+    db.update(momentPhotos)
+      .set({ fileName: null, uploadState: "remote" })
+      .where(eq(momentPhotos.id, stored.photos![i].id))
+      .run();
+  }
+  mockParams = { id: stored.id, photo: stored.photos![openAt].id };
   await render(
     <MomentsProvider db={db}>
       <MomentPhotos />
@@ -38,5 +49,33 @@ describe("Photo viewer caption", () => {
     await renderViewer(moment);
 
     expect(await screen.findByText("Thu 1 Oct")).toBeOnTheScreen();
+  });
+});
+
+describe("Photo viewer", () => {
+  const walk = {
+    text: "Walk",
+    photos: ["1-a.jpg", "1-b.jpg", "1-c.jpg"],
+    createdAt: Date.UTC(2026, 9, 1, 9, 30),
+  };
+  const shown = () =>
+    screen.container
+      .queryAll((node) => node.type === "Image")
+      .map((image) => (image.props.source as { uri: string }).uri);
+
+  it("shows the photos that are here, leaving out those on their way", async () => {
+    await renderViewer(walk, { onItsWay: [1] });
+    // The photos appear once their area has a size
+    const [area] = screen.container.queryAll((node) =>
+      Boolean(node.props.onLayout),
+    );
+    await fireEvent(area, "layout", {
+      nativeEvent: { layout: { width: 390, height: 700 } },
+    });
+
+    expect(shown()).toEqual([
+      expect.stringMatching(/photos\/1-a\.jpg$/),
+      expect.stringMatching(/photos\/1-c\.jpg$/),
+    ]);
   });
 });

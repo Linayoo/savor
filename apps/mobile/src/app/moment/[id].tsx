@@ -22,8 +22,14 @@ export default function MomentPhotos() {
   const insets = useSafeAreaInsets();
 
   const moment = moments.find((m) => m.id === id);
-  const photos = moment?.photos ?? [];
-  const startIndex = Math.max(0, photos.indexOf(photo ?? ""));
+  // Only the photos that are here; others are still on their way
+  const photos = (moment?.photos ?? []).flatMap(({ id, fileName }) =>
+    fileName === null ? [] : [{ id, uri: photoUri(fileName) }],
+  );
+  const startIndex = Math.max(
+    0,
+    photos.findIndex((p) => p.id === photo),
+  );
 
   const [index, setIndex] = useState(startIndex);
   const [areaHeight, setAreaHeight] = useState(0);
@@ -44,7 +50,7 @@ export default function MomentPhotos() {
           {photos.length > 1 &&
             photos.map((p, i) => (
               <View
-                key={p}
+                key={p.id}
                 style={[styles.dot, i === index && styles.dotActive]}
               />
             ))}
@@ -62,7 +68,7 @@ export default function MomentPhotos() {
             horizontal
             pagingEnabled
             showsHorizontalScrollIndicator={false}
-            keyExtractor={(p) => p}
+            keyExtractor={(p) => p.id}
             initialScrollIndex={startIndex}
             getItemLayout={(_, i) => ({
               length: width,
@@ -74,7 +80,7 @@ export default function MomentPhotos() {
             }
             renderItem={({ item }) => (
               <Image
-                source={{ uri: photoUri(item) }}
+                source={{ uri: item.uri }}
                 style={{ width, height: areaHeight }}
                 resizeMode="contain"
               />

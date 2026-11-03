@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { appMeta, momentPhotos, moments } from "@/db/schema";
 import { importFromAsyncStorage } from "@/db/import-async-storage";
 import { listMoments } from "@/db/moments-store";
-import { createTestDb } from "@/test-utils/db";
+import { createTestDb, photosNamed } from "@/test-utils/db";
 
 const OLD_KEY = "savor.moments";
 const FLAG = "savor.sqliteImported";
@@ -60,7 +60,7 @@ describe("importFromAsyncStorage", () => {
       {
         id: expect.stringMatching(UUID),
         text: "Ramen with Ana",
-        photos: ["1-a.jpg", "1-b.jpg", "1-c.jpg"],
+        photos: photosNamed("1-a.jpg", "1-b.jpg", "1-c.jpg"),
         kind: "meal",
         createdAt: oct1,
       },
@@ -73,7 +73,7 @@ describe("importFromAsyncStorage", () => {
       {
         id: expect.stringMatching(UUID),
         text: "",
-        photos: ["file:///var/mobile/tmp/old.jpg"],
+        photos: photosNamed("file:///var/mobile/tmp/old.jpg"),
         createdAt: aug2,
       },
       {

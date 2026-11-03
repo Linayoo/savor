@@ -6,7 +6,7 @@ import {
   listMoments,
   updateMoment,
 } from "@/db/moments-store";
-import { createTestDb } from "@/test-utils/db";
+import { createTestDb, photosNamed } from "@/test-utils/db";
 
 const UUID =
   /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
@@ -71,7 +71,7 @@ describe("insertMoment", () => {
       expect.objectContaining({
         text: "Walk",
         kind: "nature",
-        photos: ["1-a.jpg", "1-b.jpg"],
+        photos: photosNamed("1-a.jpg", "1-b.jpg"),
       }),
     ]);
     expect(
@@ -104,7 +104,7 @@ describe("listMoments", () => {
       {
         id: newer.id,
         text: "newer",
-        photos: ["n.jpg"],
+        photos: photosNamed("n.jpg"),
         kind: "meal",
         createdAt: newer.createdAt,
       },
@@ -159,7 +159,7 @@ describe("updateMoment", () => {
 
     updateMoment(db, moment.id, { text: "Long walk", kind: "nature" }, deps);
 
-    expect(listMoments(db)[0].photos).toEqual(["a.jpg", "b.jpg"]);
+    expect(listMoments(db)[0].photos).toEqual(photosNamed("a.jpg", "b.jpg"));
   });
 });
 

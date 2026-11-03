@@ -3,7 +3,7 @@ import { randomUUID } from "node:crypto";
 import { deleteMoment, insertMoment, listMoments } from "@/db/moments-store";
 import { momentPhotos } from "@/db/schema";
 import { SyncEngine } from "@/sync/engine";
-import { createTestDb } from "@/test-utils/db";
+import { createTestDb, photosNamed } from "@/test-utils/db";
 import { FakePhotoTransfer } from "@/test-utils/fake-photo-transfer";
 import { FakeSyncServer, photoKey } from "@/test-utils/fake-sync-server";
 
@@ -105,7 +105,7 @@ describe("the upload queue", () => {
     expect((await sync()).phase).toBe("idle");
 
     expect(listMoments(db)).toEqual([
-      expect.objectContaining({ id: moment.id, photos: ["w2.jpg"] }),
+      expect.objectContaining({ id: moment.id, photos: photosNamed("w2.jpg") }),
     ]);
     expect(server.photosOf("user-a")).toContainEqual(
       expect.objectContaining({ id: idOf("gone.jpg"), deletedAt: t }),

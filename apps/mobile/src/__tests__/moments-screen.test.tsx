@@ -4,12 +4,15 @@ import {
   userEvent,
   within,
 } from "@testing-library/react-native";
+import { eq } from "drizzle-orm";
+import { router } from "expo-router";
 import { ActionSheetIOS } from "react-native";
 import Index from "@/app/(tabs)/index";
 import { listMoments } from "@/db/moments-store";
+import { momentPhotos } from "@/db/schema";
 import type { AppDb } from "@/db/types";
 import { MomentsProvider } from "@/moments";
-import { createTestDb, seedMoments } from "@/test-utils/db";
+import { createTestDb, photosNamed, seedMoments } from "@/test-utils/db";
 
 jest.mock("expo-router", () => ({ router: { push: jest.fn() } }));
 
@@ -32,6 +35,17 @@ async function renderScreen(stored: Parameters<typeof seedMoments>[1] = []) {
   );
   return userEvent.setup();
 }
+
+// After changing the database underneath the screen
+async function renderAgain() {
+  await render(
+    <MomentsProvider db={db}>
+      <Index />
+    </MomentsProvider>,
+  );
+}
+
+beforeEach(() => jest.mocked(router.push).mockClear());
 
 const input = () => screen.getByPlaceholderText("What moved you just now?");
 const chip = (name: string) => screen.getByRole("button", { name });
@@ -133,7 +147,12 @@ describe("Moments screen: editing a moment", () => {
     expect(list.getByTestId("icon-book-outline")).toBeOnTheScreen();
     expect(list.getByText("Rain on the window")).toBeOnTheScreen();
     expect(listMoments(db)).toEqual([
-      { ...oldMoment, id: expect.any(String), kind: "book" },
+      {
+        ...oldMoment,
+        id: expect.any(String),
+        kind: "book",
+        photos: photosNamed("1-a.jpg"),
+      },
     ]);
   });
 
@@ -159,5 +178,40 @@ describe("Moments screen: editing a moment", () => {
     expect(input()).toHaveDisplayValue("");
     expect(chip("Meal")).not.toBeSelected();
     expect(screen.getByText("Keep")).toBeOnTheScreen();
+  });
+});
+
+describe("Moments screen: photos from another device", () => {
+  // As a pulled photo is before its file arrives
+  const onItsWay = (fileName: string) =>
+    db
+      .update(momentPhotos)
+      .set({ fileName: null, uploadState: "remote" })
+      .where(eq(momentPhotos.fileName, fileName))
+      .run();
+
+  it("shows a soft tile in place of a photo still on its way, which doesn't open", async () => {
+    const user = await renderScreen([
+      { ...oldMoment, photos: ["1-a.jpg", "1-b.jpg"] },
+    ]);
+    onItsWay("1-b.jpg");
+    await renderAgain();
+
+    const photos = screen.getAllByLabelText(/^(Open photo|Photo on its way)$/);
+    expect(photos.map((p) => p.props.accessibilityLabel)).toEqual([
+      "Open photo",
+      "Photo on its way",
+    ]);
+    await user.press(screen.getByLabelText("Photo on its way"));
+    expect(router.push).not.toHaveBeenCalled();
+
+    await user.press(screen.getByLabelText("Open photo"));
+    expect(router.push).toHaveBeenCalledWith({
+      pathname: "/moment/[id]",
+      params: {
+        id: listMoments(db)[0].id,
+        photo: listMoments(db)[0].photos![0].id,
+      },
+    });
   });
 });

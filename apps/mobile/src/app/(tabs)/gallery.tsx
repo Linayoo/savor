@@ -19,13 +19,13 @@ export default function Gallery() {
   const { width } = useWindowDimensions();
   const size = (width - PADDING * 2 - GAP * 2) / 3;
 
+  // Photos on their way from another device join once they're here
   const photos = moments.flatMap((m) =>
-    (m.photos ?? []).map((p) => ({
-      key: `${m.id}-${p}`,
-      momentId: m.id,
-      photo: p,
-      uri: photoUri(p),
-    })),
+    (m.photos ?? []).flatMap(({ id, fileName }) =>
+      fileName === null
+        ? []
+        : [{ key: id, momentId: m.id, photo: id, uri: photoUri(fileName) }],
+    ),
   );
 
   return (
@@ -40,6 +40,7 @@ export default function Gallery() {
         contentContainerStyle={{ gap: GAP }}
         renderItem={({ item }) => (
           <Pressable
+            accessibilityLabel="Open photo"
             onPress={() =>
               router.push({
                 pathname: "/moment/[id]",
