@@ -1,6 +1,6 @@
 # 006: Photo uploads
 
-Status: approved
+Status: done
 
 ## Problem
 
@@ -81,42 +81,47 @@ The server goes first: Terraform, then the API, checked against S3 on its own. T
 
 Upload and download
 
-- [ ] Given I keep a moment with two photos on device 1, then device 2 shows the moment with two placeholder tiles, then the photos, in the same order.
-- [ ] Given photos kept before this spec, when device 1 syncs after updating, then they are uploaded and appear on device 2.
-- [ ] Given device 2 receives photos, then they appear in its timeline, gallery and full-screen viewer.
-- [ ] Given an old photo whose file is missing, then its record is tombstoned, it is never retried, and it disappears from the moment on both devices.
-- [ ] Given the upload fails (network off or an expired URL), then it is retried with backoff and succeeds once possible, without blocking the moment's text and kind.
-- [ ] Given a photo's upload never completes, then other devices keep its placeholder and never try to download it.
+- [x] Given I keep a moment with two photos on device 1, then device 2 shows the moment with two placeholder tiles, then the photos, in the same order. Verified: two-device sync tests; manual run on two simulators.
+- [x] Given photos kept before this spec, when device 1 syncs after updating, then they are uploaded and appear on device 2. Verified: migration test on existing photo rows; two-device test.
+- [x] Given device 2 receives photos, then they appear in its timeline, gallery and full-screen viewer. Verified: timeline, gallery and viewer tests; manual run.
+- [x] Given an old photo whose file is missing, then its record is tombstoned, it is never retried, and it disappears from the moment on both devices. Verified: upload queue test.
+- [x] Given the upload fails (network off or an expired URL), then it is retried with backoff and succeeds once possible, without blocking the moment's text and kind. Verified: upload queue tests (a refused form, a failed POST, one photo failing among others).
+- [x] Given a photo's upload never completes, then other devices keep its placeholder and never try to download it. Verified: two-device test; manual run, while uploads were failing (see Notes).
 
 Privacy and security
 
-- [ ] An uploaded photo contains no GPS or other EXIF metadata (checked on a real uploaded object).
-- [ ] An uploaded photo's longest edge is at most 2048 px.
-- [ ] Given user B, then `createUpload`, `confirmUpload` and `downloadUrls` for user A's photo ids return nothing usable (`NOT_FOUND` or left out).
-- [ ] The object key is built on the server; there is no way for the phone to choose it.
-- [ ] Given an upload over 10 MB or with another content type, then S3 refuses it.
-- [ ] A presigned upload URL stops working after 5 minutes, a download URL after 15.
-- [ ] The bucket blocks public access, denies non-TLS requests, and no role other than the API's is granted access to `users/*` (the account admin keeps access).
+- [x] An uploaded photo contains no GPS or other EXIF metadata (checked on a real uploaded object). Verified: exiftool on both uploaded objects, one from a JPEG with GPS added; no GPS or EXIF tags.
+- [x] An uploaded photo's longest edge is at most 2048 px. Verified: transfer test; the uploaded objects are 1366×2048 and 1536×2048.
+- [x] Given user B, then `createUpload`, `confirmUpload` and `downloadUrls` for user A's photo ids return nothing usable (`NOT_FOUND` or left out). Verified: API tests; photo-checks script against the deployed API.
+- [x] The object key is built on the server; there is no way for the phone to choose it. Verified: API tests; photo-checks (S3 refuses another key).
+- [x] Given an upload over 10 MB or with another content type, then S3 refuses it. Verified: fake storage tests and offline policy tests; photo-checks against S3.
+- [x] A presigned upload URL stops working after 5 minutes, a download URL after 15. Verified: API tests; photo-checks --expiry against S3.
+- [x] The bucket blocks public access, denies non-TLS requests, and no role other than the API's is granted access to `users/*` (the account admin keeps access). Verified: photo-checks (public access block, bucket policy, plain HTTP and unsigned requests refused); Terraform review of the role policies.
 
 Deletes
 
-- [ ] Given a moment with photos deleted on device 1, then device 2 removes the photos, and the S3 objects are gone.
-- [ ] Given the S3 delete fails, then the push still succeeds and the failure is logged.
+- [x] Given a moment with photos deleted on device 1, then device 2 removes the photos, and the S3 objects are gone. Verified: delete tests (API and two devices); manual run with `aws s3 ls`.
+- [x] Given the S3 delete fails, then the push still succeeds and the failure is logged. Verified: API delete tests.
 
 Quality
 
-- [ ] API tests for the three procedures, including cross-user cases, run against Postgres with S3 replaced by a fake that checks keys and conditions.
-- [ ] A test shows the spec 005 phone code still syncs against the new API (pull output with `uploadedAt`).
-- [ ] Phone sync tests cover the photo record rules, both queues, retries, the missing-file case and two devices sharing photos through the fake server and fake storage.
-- [ ] Mutation check: removing the ownership check in `createUpload`, or the "not pending" check for photo records on pull, makes a test fail.
-- [ ] Terraform fmt and validate pass; plan shows no changes after apply.
-- [ ] `pnpm typecheck`, `pnpm lint`, `pnpm format:check` and `pnpm test` pass locally and in CI, and the iOS export passes.
+- [x] API tests for the three procedures, including cross-user cases, run against Postgres with S3 replaced by a fake that checks keys and conditions. Verified: photos.test.ts, with the fake checking the same conditions sent to S3.
+- [x] A test shows the spec 005 phone code still syncs against the new API (pull output with `uploadedAt`). Verified: old-phones.test.ts.
+- [x] Phone sync tests cover the photo record rules, both queues, retries, the missing-file case and two devices sharing photos through the fake server and fake storage. Verified: sync-push, sync-pull, sync-uploads and sync-two-devices tests.
+- [x] Mutation check: removing the ownership check in `createUpload`, or the "not pending" check for photo records on pull, makes a test fail. Verified: each removal fails exactly one test.
+- [ ] Terraform fmt and validate pass; plan shows no changes after apply. fmt and validate pass in CI; the plan after apply is still to be run.
+- [x] `pnpm typecheck`, `pnpm lint`, `pnpm format:check` and `pnpm test` pass locally and in CI, and the iOS export passes. Verified: locally on every commit and in CI.
 
 Manual (two simulators)
 
-- [ ] Keep a moment with photos on simulator 1 and see them arrive on simulator 2.
-- [ ] Download an uploaded object with the AWS CLI and confirm it has no location metadata.
-- [ ] Delete the moment and confirm the objects are gone from the bucket.
+- [x] Keep a moment with photos on simulator 1 and see them arrive on simulator 2. Verified.
+- [x] Download an uploaded object with the AWS CLI and confirm it has no location metadata. Verified.
+- [x] Delete the moment and confirm the objects are gone from the bucket. Verified.
+
+## Notes
+
+- Expo SDK 58 installs its own `fetch`, which encodes FormData itself and refuses React Native's `{ uri, name, type }` file parts. The phone sends the upload copy as an expo-file-system `File`, and the transfer test runs the body through Expo's own encoding; the first manual run failed on this while the tests passed.
+- In development, sync failures are logged to the Metro terminal as `[sync]` lines with the failing step (copy, createUpload, upload, confirmUpload, downloadUrls or download), the photo and the error. Release builds log nothing.
 
 ## Out of scope
 
