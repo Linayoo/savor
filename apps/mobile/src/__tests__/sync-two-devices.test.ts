@@ -10,7 +10,10 @@ import {
 import { momentPhotos } from "@/db/schema";
 import { SyncEngine } from "@/sync/engine";
 import { createTestDb } from "@/test-utils/db";
+import { FakePhotoTransfer } from "@/test-utils/fake-photo-transfer";
 import { FakeSyncServer } from "@/test-utils/fake-sync-server";
+
+type PhotoRow = typeof momentPhotos.$inferSelect;
 
 // Two phones signed in to the same account, syncing through one server
 function twoDevices() {
@@ -20,20 +23,24 @@ function twoDevices() {
 
   const device = () => {
     const db = createTestDb();
-    const deleteFiles = jest.fn();
+    const transfer = new FakePhotoTransfer(server);
+    const deleteFiles = jest.fn(transfer.delete);
     const engine = new SyncEngine({
       db,
       api: server.api("user-a"),
       now,
       deleteFiles,
+      transfer,
     });
     const deps = { newId: randomUUID, now };
     return {
       db,
       deleteFiles,
       sync: () => engine.sync().then(() => engine.status),
-      keep: (text: string, kind?: MomentKind, photos: string[] = []) =>
-        insertMoment(db, { text, kind, photos }, deps),
+      keep: (text: string, kind?: MomentKind, photos: string[] = []) => {
+        photos.forEach((p) => transfer.add(p));
+        return insertMoment(db, { text, kind, photos }, deps);
+      },
       edit: (id: string, text: string, kind?: MomentKind) =>
         updateMoment(db, id, { text, kind }, deps),
       remove: (id: string) => deleteMoment(db, id, deps),
@@ -156,13 +163,18 @@ describe("two devices", () => {
     await two.sync();
 
     expect(one.moments()[0].photos).toEqual(["p1.jpg", "p2.jpg"]);
-    expect(two.photoRows()).toEqual(
-      one.photoRows().map((photo) => ({
-        ...photo,
-        fileName: null,
-        uploadState: "remote",
-      })),
+    const sameRecord = ({ id, momentId, position }: PhotoRow) => ({
+      id,
+      momentId,
+      position,
+    });
+    expect(two.photoRows().map(sameRecord)).toEqual(
+      one.photoRows().map(sameRecord),
     );
+    expect(two.photoRows().map((p) => [p.fileName, p.uploadState])).toEqual([
+      [null, "remote"],
+      [null, "remote"],
+    ]);
   });
 
   it("sends moments kept while offline once the connection is back", async () => {

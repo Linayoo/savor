@@ -38,6 +38,12 @@ export function createTrpcSyncApi({
   return {
     push: (input) => call(() => client.sync.push.mutate(input)),
     pull: (input) => call(() => client.sync.pull.query(input)),
+    createUpload: (input) =>
+      call(() => client.photos.createUpload.mutate(input)),
+    confirmUpload: (input) =>
+      call(() => client.photos.confirmUpload.mutate(input)),
+    downloadUrls: (input) =>
+      call(() => client.photos.downloadUrls.query(input)),
   };
 }
 
@@ -45,6 +51,7 @@ const kindByCode: Partial<Record<string, SyncErrorKind>> = {
   CONFLICT: "conflict",
   BAD_REQUEST: "rejected",
   UNAUTHORIZED: "unauthorized",
+  NOT_FOUND: "notFound",
 };
 
 function toSyncError(error: unknown): SyncError {

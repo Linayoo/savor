@@ -1,8 +1,10 @@
 import { getMeta } from "../db/app-meta";
 import type { AppDb } from "../db/types";
 import { SyncError, type SyncApi, type SyncErrorKind } from "./api";
+import type { PhotoTransfer } from "./photo-transfer";
 import { pullChanges } from "./pull";
 import { pushPending } from "./push";
+import { uploadPhotos } from "./upload";
 
 // - idle: nothing to do, or the last sync worked
 // - retrying: the last sync failed and another try is scheduled
@@ -17,7 +19,7 @@ export type SyncStatus =
     }
   | {
       phase: "stopped";
-      problem: Exclude<SyncErrorKind, "unavailable">;
+      problem: Exclude<SyncErrorKind, "unavailable" | "notFound">;
       lastSyncedAt: number | null;
     };
 
@@ -26,6 +28,7 @@ export type SyncEngineDeps = {
   api: SyncApi;
   now: () => number;
   deleteFiles: (fileNames: string[]) => void;
+  transfer: PhotoTransfer;
   // Waits after the last local change before syncing
   debounceMs?: number;
   // Waits before each retry after failures in a row; the last one repeats
@@ -34,8 +37,8 @@ export type SyncEngineDeps = {
 
 type Timer = ReturnType<typeof setTimeout>;
 
-// Runs syncs for one signed-in account (spec 005): push, then pull, one at a
-// time, with retries. Triggers come from the app; the engine has no idea of
+// Runs syncs for one signed-in account (specs 005 and 006): push, pull, then
+// the photo files, one sync at a time, with retries. Triggers come from the app; the engine has no idea of
 // React, the network or app state.
 export class SyncEngine {
   status: SyncStatus;
@@ -94,7 +97,8 @@ export class SyncEngine {
     return () => this.statusListeners.delete(listener);
   }
 
-  // Called after a pull changed moments, so the screens can reload
+  // Called after a sync changed moments or photos here, so the screens can
+  // reload
   onChange(listener: () => void): () => void {
     this.changeListeners.add(listener);
     return () => this.changeListeners.delete(listener);
@@ -124,7 +128,7 @@ export class SyncEngine {
   }
 
   private async runOnce() {
-    const { db, api, now, deleteFiles } = this.deps;
+    const { db, api, now, deleteFiles, transfer } = this.deps;
     const generation = this.generation;
     const cancelled = () => generation !== this.generation;
     this.setStatus({
@@ -135,28 +139,40 @@ export class SyncEngine {
       await pushPending(db, api);
       const { changed } = await pullChanges(db, api, { now, deleteFiles });
       if (cancelled()) return;
+      if (changed) this.notifyChange();
+
+      const uploads = await uploadPhotos(db, api, transfer, now);
+      if (uploads.missingFiles) {
+        this.notifyChange();
+        await pushPending(db, api);
+      }
+      if (uploads.failure) throw uploads.failure;
+      if (cancelled()) return;
       this.failures = 0;
       this.setStatus({
         phase: "idle",
         lastSyncedAt: getMeta(db, "lastSyncedAt"),
       });
-      if (changed) this.changeListeners.forEach((listener) => listener());
     } catch (error) {
       if (!cancelled()) this.fail(error);
     }
+  }
+
+  private notifyChange() {
+    this.changeListeners.forEach((listener) => listener());
   }
 
   private fail(error: unknown) {
     const lastSyncedAt = this.status.lastSyncedAt;
     // Anything else, like a page that failed to apply, is worth another try
     const kind = error instanceof SyncError ? error.kind : "unavailable";
-    if (kind !== "unavailable") {
+    if (kind !== "unavailable" && kind !== "notFound") {
       this.setStatus({ phase: "stopped", problem: kind, lastSyncedAt });
       return;
     }
 
     this.failures += 1;
-    this.setStatus({ phase: "retrying", problem: kind, lastSyncedAt });
+    this.setStatus({ phase: "retrying", problem: "unavailable", lastSyncedAt });
     if (this.stopped) return;
     const delays = this.retryDelaysMs;
     const delay = delays[Math.min(this.failures, delays.length) - 1];

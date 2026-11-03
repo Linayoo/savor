@@ -14,6 +14,7 @@ import { useAccount } from "./account";
 import type { AppDb } from "./db/types";
 import type { SyncApi } from "./sync/api";
 import { SyncEngine, type SyncStatus } from "./sync/engine";
+import type { PhotoTransfer } from "./sync/photo-transfer";
 
 type Unsubscribe = () => void;
 
@@ -62,6 +63,7 @@ export function SyncProvider({
   db,
   createApi,
   deleteFiles,
+  transfer,
   subscribeToConnection = connectionFromNetInfo,
   subscribeToForeground = foregroundFromAppState,
   children,
@@ -70,6 +72,7 @@ export function SyncProvider({
   // Called once per sign-in
   createApi: () => SyncApi;
   deleteFiles: (fileNames: string[]) => void;
+  transfer: PhotoTransfer;
   subscribeToConnection?: (onChange: (online: boolean) => void) => Unsubscribe;
   subscribeToForeground?: (onActive: () => void) => Unsubscribe;
   children: ReactNode;
@@ -89,7 +92,7 @@ export function SyncProvider({
 
   // Dependencies are fixed for the app's lifetime; the engine follows the
   // signed-in account only
-  const deps = useRef({ createApi, deleteFiles });
+  const deps = useRef({ createApi, deleteFiles, transfer });
   const endSessionRef = useRef(endSession);
   useEffect(() => {
     endSessionRef.current = endSession;
@@ -102,6 +105,7 @@ export function SyncProvider({
       api: deps.current.createApi(),
       now: Date.now,
       deleteFiles: deps.current.deleteFiles,
+      transfer: deps.current.transfer,
     });
     const offStatus = next.subscribe((nextStatus) => {
       setStatus(nextStatus);

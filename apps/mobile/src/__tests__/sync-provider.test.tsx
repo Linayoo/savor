@@ -9,6 +9,7 @@ import { SyncError, type SyncApi } from "@/sync/api";
 import { SyncProvider, useSync } from "@/sync-provider";
 import { createTestDb, seedMoments } from "@/test-utils/db";
 import { fakeAuth } from "@/test-utils/fake-auth";
+import { FakePhotoTransfer } from "@/test-utils/fake-photo-transfer";
 import { FakeSyncServer } from "@/test-utils/fake-sync-server";
 
 jest.mock("expo-router", () => ({ router: { push: jest.fn() } }));
@@ -66,6 +67,7 @@ function setup({
         db={db}
         createApi={() => api ?? server.api(ana.userId)}
         deleteFiles={deleteFiles}
+        transfer={new FakePhotoTransfer(server)}
         subscribeToConnection={subscribeToConnection}
         subscribeToForeground={subscribeToForeground}
       >
@@ -189,6 +191,7 @@ describe("SyncProvider", () => {
 
   it("ends the session when the token can't be refreshed, and keeps the moments", async () => {
     const ended: SyncApi = {
+      ...new FakeSyncServer().api(ana.userId),
       push: () => Promise.reject(new SyncError("unauthorized")),
       pull: () => Promise.reject(new SyncError("unauthorized")),
     };
@@ -228,6 +231,7 @@ describe("SyncProvider", () => {
   it("doesn't say the session ended when a sync fails because of the sign-out", async () => {
     let rejectPush = (_: unknown) => {};
     const pushing: SyncApi = {
+      ...new FakeSyncServer().api(ana.userId),
       push: () => new Promise((_, reject) => (rejectPush = reject)),
       pull: () =>
         Promise.resolve({

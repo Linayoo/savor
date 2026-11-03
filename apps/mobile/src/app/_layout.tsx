@@ -15,7 +15,7 @@ import { appConfig } from "../config";
 import { db } from "../db/client";
 import { DatabaseGate } from "../db/database-gate";
 import { MomentsProvider } from "../moments";
-import { deletePhotoFiles } from "../photos";
+import { deletePhotoFiles, photoTransfer } from "../photos";
 import { SyncProvider } from "../sync-provider";
 import { createTrpcSyncApi } from "../sync/trpc-api";
 
@@ -41,6 +41,7 @@ export default function RootLayout() {
           db={db}
           createApi={createApi}
           deleteFiles={deletePhotoFiles}
+          transfer={photoTransfer}
         >
           <MomentsProvider db={db}>
             <Stack screenOptions={{ headerShown: false }}>

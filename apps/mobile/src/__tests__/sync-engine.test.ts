@@ -4,6 +4,7 @@ import { insertMoment } from "@/db/moments-store";
 import { SyncError, type SyncApi } from "@/sync/api";
 import { SyncEngine, type SyncStatus } from "@/sync/engine";
 import { createTestDb } from "@/test-utils/db";
+import { FakePhotoTransfer } from "@/test-utils/fake-photo-transfer";
 import { FakeSyncServer } from "@/test-utils/fake-sync-server";
 
 const t = Date.UTC(2026, 10, 1, 9, 30);
@@ -14,6 +15,7 @@ function setup(wrap: (api: SyncApi) => SyncApi = (api) => api) {
   const calls: string[] = [];
   const inner = server.api("user-a");
   const api = wrap({
+    ...inner,
     push: (input) => {
       calls.push("push");
       return inner.push(input);
@@ -28,6 +30,7 @@ function setup(wrap: (api: SyncApi) => SyncApi = (api) => api) {
     api,
     now: () => Date.now(),
     deleteFiles: jest.fn(),
+    transfer: new FakePhotoTransfer(server),
   });
   const statuses: SyncStatus[] = [];
   engine.subscribe((s) => statuses.push(s));
@@ -40,6 +43,7 @@ function setup(wrap: (api: SyncApi) => SyncApi = (api) => api) {
 function failing(kind: SyncError["kind"] = "unavailable") {
   const state = { failing: true, attempts: 0 };
   const wrap = (api: SyncApi): SyncApi => ({
+    ...api,
     push: (input) => {
       state.attempts += 1;
       return state.failing
@@ -300,11 +304,13 @@ describe("SyncEngine", () => {
     const { db } = setup();
     setMeta(db, "lastSyncedAt", t - 3_600_000);
 
+    const server = new FakeSyncServer();
     const engine = new SyncEngine({
       db,
-      api: new FakeSyncServer().api("user-a"),
+      api: server.api("user-a"),
       now: () => Date.now(),
       deleteFiles: jest.fn(),
+      transfer: new FakePhotoTransfer(server),
     });
 
     expect(engine.status).toEqual({

@@ -75,7 +75,43 @@ describe("createTrpcSyncApi", () => {
     });
   });
 
+  it("calls the photo procedures with the token, mutations as POST", async () => {
+    const { calls, fetch } = fakeFetch((call) => ({
+      status: 200,
+      body: {
+        result: {
+          data: call.url.includes("photos.downloadUrls")
+            ? { urls: [] }
+            : call.url.includes("photos.confirmUpload")
+              ? { uploadedAt: 5 }
+              : { url: "https://s3.example.com/", fields: { key: "k" } },
+        },
+      },
+    }));
+    const photoId = "6f1c1d0e-1c1a-4f6e-9a51-3f3f0b0e2a11";
+
+    expect(await api(fetch).createUpload({ photoId })).toEqual({
+      url: "https://s3.example.com/",
+      fields: { key: "k" },
+    });
+    expect(await api(fetch).confirmUpload({ photoId })).toEqual({
+      uploadedAt: 5,
+    });
+    expect(await api(fetch).downloadUrls({ photoIds: [photoId] })).toEqual({
+      urls: [],
+    });
+    expect(calls.map((c) => [c.method, new URL(c.url).pathname])).toEqual([
+      ["POST", "/photos.createUpload"],
+      ["POST", "/photos.confirmUpload"],
+      ["GET", "/photos.downloadUrls"],
+    ]);
+    expect(
+      calls.every((c) => c.headers.get("authorization") === "Bearer token-a"),
+    ).toBe(true);
+  });
+
   it.each([
+    ["NOT_FOUND", 404, "notFound"],
     ["CONFLICT", 409, "conflict"],
     ["BAD_REQUEST", 400, "rejected"],
     ["UNAUTHORIZED", 401, "unauthorized"],

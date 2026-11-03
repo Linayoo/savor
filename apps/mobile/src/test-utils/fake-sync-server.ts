@@ -7,15 +7,32 @@ import {
   type PhotoChange,
   type PullOutput,
   type PushInput,
+  type CreateUploadOutput,
 } from "@savor/shared";
 import { SyncError, type SyncApi, type SyncErrorKind } from "@/sync/api";
 
 type Stored<T> = T & { userId: string; version: number };
 
+type Method =
+  | "push"
+  | "pull"
+  | "createUpload"
+  | "confirmUpload"
+  | "downloadUrls"
+  | "upload"
+  | "download";
+
+const DOWNLOAD_URL = "https://fake-s3.test/download/";
+
+// As the API builds it, from the signed-in user
+export const photoKey = (userId: string, photoId: string) =>
+  `users/${userId}/photos/${photoId}.jpg`;
+
 // An in-memory stand-in for the deployed API, with the server rules from
 // spec 003 (apps/api/src/sync): per-user increasing versions, last write wins,
 // deletes are final, another user's ids are a CONFLICT, and a push is all or
-// nothing.
+// nothing. Photos (spec 006) go to an in-memory bucket shared by every device,
+// under keys the server builds.
 export class FakeSyncServer {
   private moments = new Map<string, Stored<MomentChange>>();
   private photos = new Map<
@@ -23,25 +40,47 @@ export class FakeSyncServer {
     Stored<PhotoChange & { uploadedAt: number | null }>
   >();
   private versions = new Map<string, number>();
-  private faults: { method: "push" | "pull"; kind: SyncErrorKind }[] = [];
+  private faults: { method: Method; kind: SyncErrorKind }[] = [];
   private hold: { started: () => void; released: Promise<void> } | null = null;
 
   // Every push the server received, accepted or not
   readonly pushes: { userId: string; input: PushInput }[] = [];
   readonly pulls: { userId: string; sinceVersion: number }[] = [];
+  readonly photoCalls: { method: Method; photoIds: string[] }[] = [];
+  // The photos bucket, by key
+  readonly objects = new Map<string, string>();
 
   // A client signed in as userId
   api(userId: string): SyncApi {
     return {
       push: (input) => this.push(userId, input),
       pull: (input) => this.pull(userId, input),
+      createUpload: (input) => this.createUpload(userId, input.photoId),
+      confirmUpload: (input) => this.confirmUpload(userId, input.photoId),
+      downloadUrls: (input) => this.downloadUrls(userId, input.photoIds),
     };
   }
 
   // The next call to method fails with kind, as a network error or the
-  // server would
-  failNext(method: "push" | "pull", kind: SyncErrorKind = "unavailable") {
+  // server would. upload and download are the phone's requests to S3.
+  failNext(method: Method, kind: SyncErrorKind = "unavailable") {
     this.faults.push({ method, kind });
+  }
+
+  // S3's side of a presigned POST: stores the file at the form's key
+  async receiveUpload(form: CreateUploadOutput, content: string) {
+    await Promise.resolve();
+    this.takeFault("upload");
+    this.objects.set(form.fields.key, content);
+  }
+
+  // S3's side of a presigned GET
+  async serveDownload(url: string): Promise<string> {
+    await Promise.resolve();
+    this.takeFault("download");
+    const content = this.objects.get(url.slice(DOWNLOAD_URL.length));
+    if (content === undefined) throw new SyncError("unavailable", "403");
+    return content;
   }
 
   // Keeps the next push in flight: the server has the request but answers
@@ -85,7 +124,61 @@ export class FakeSyncServer {
     });
   }
 
-  private takeFault(method: "push" | "pull") {
+  // The caller's live photo, as the API's ownership check finds it
+  private ownPhoto(userId: string, photoId: string) {
+    const photo = this.photos.get(photoId);
+    if (!photo || photo.userId !== userId || photo.deletedAt !== null) {
+      throw new SyncError("notFound");
+    }
+    return photo;
+  }
+
+  private async createUpload(
+    userId: string,
+    photoId: string,
+  ): Promise<CreateUploadOutput> {
+    this.photoCalls.push({ method: "createUpload", photoIds: [photoId] });
+    await Promise.resolve();
+    this.takeFault("createUpload");
+    this.ownPhoto(userId, photoId);
+    return {
+      url: "https://fake-s3.test/",
+      fields: { key: photoKey(userId, photoId), "Content-Type": "image/jpeg" },
+    };
+  }
+
+  private async confirmUpload(userId: string, photoId: string) {
+    this.photoCalls.push({ method: "confirmUpload", photoIds: [photoId] });
+    await Promise.resolve();
+    this.takeFault("confirmUpload");
+    const photo = this.ownPhoto(userId, photoId);
+    if (photo.uploadedAt !== null) return { uploadedAt: photo.uploadedAt };
+    if (!this.objects.has(photoKey(userId, photoId))) {
+      throw new SyncError("notFound");
+    }
+    const uploadedAt = Date.now();
+    this.markUploaded(userId, photoId, uploadedAt);
+    return { uploadedAt };
+  }
+
+  private async downloadUrls(userId: string, photoIds: string[]) {
+    this.photoCalls.push({ method: "downloadUrls", photoIds });
+    await Promise.resolve();
+    this.takeFault("downloadUrls");
+    const urls = photoIds.flatMap((photoId) => {
+      const photo = this.photos.get(photoId);
+      const usable =
+        photo?.userId === userId &&
+        photo.deletedAt === null &&
+        photo.uploadedAt !== null;
+      return usable
+        ? [{ photoId, url: DOWNLOAD_URL + photoKey(userId, photoId) }]
+        : [];
+    });
+    return { urls };
+  }
+
+  private takeFault(method: Method) {
     const i = this.faults.findIndex((f) => f.method === method);
     if (i === -1) return;
     const [fault] = this.faults.splice(i, 1);
@@ -139,6 +232,20 @@ export class FakeSyncServer {
       upsert(this.photos, { ...change, uploadedAt }, userId, version);
     }
     this.versions.set(userId, version);
+
+    // As the API does after the push commits
+    const deletedMoments = new Set(
+      input.moments.filter((m) => m.deletedAt !== null).map((m) => m.id),
+    );
+    for (const photo of this.photos.values()) {
+      if (
+        photo.userId === userId &&
+        (deletedMoments.has(photo.momentId) ||
+          input.photos.some((p) => p.id === photo.id && p.deletedAt !== null))
+      ) {
+        this.objects.delete(photoKey(userId, photo.id));
+      }
+    }
     return version;
   }
 
