@@ -303,12 +303,12 @@ The user pool has deletion protection, and destroying the Neon project deletes t
 - [x] Core app: keep moments with photos, timeline, gallery, full-screen viewer, edit, delete
 - [x] M0: monorepo, CI, specs
 - [x] M1: moment kinds (first spec-driven feature)
-- [ ] M2: backend and sync
+- [x] M2: backend and sync
   - [x] Local SQLite store with UUIDs and tombstones (spec 002)
   - [x] Shared schemas and local API (spec 003)
   - [x] Auth and deployment on AWS (spec 004)
   - [x] Sign-in and moment sync (spec 005)
-  - [ ] Photo uploads (spec 006)
+  - [x] Photo uploads (spec 006)
 - [ ] M3: monthly letter (LLM API, scheduled)
 - [ ] M4: enrichment agent (SQS, tools)
 - [ ] M5: TestFlight via CI, demo video
