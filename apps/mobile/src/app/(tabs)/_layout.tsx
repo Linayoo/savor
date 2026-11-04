@@ -42,6 +42,19 @@ export default function TabsLayout() {
           ),
         }}
       />
+      <Tabs.Screen
+        name="letters"
+        options={{
+          title: "Letters",
+          tabBarIcon: ({ focused, size }) => (
+            <Ionicons
+              name="mail-outline"
+              color={focused ? activeTint : inactiveTint}
+              size={size}
+            />
+          ),
+        }}
+      />
     </Tabs>
   );
 }

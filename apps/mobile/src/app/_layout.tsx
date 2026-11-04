@@ -61,6 +61,10 @@ export default function RootLayout() {
                   }}
                 />
                 <Stack.Screen
+                  name="letter/[id]"
+                  options={{ presentation: "modal" }}
+                />
+                <Stack.Screen
                   name="account"
                   options={{ presentation: "modal" }}
                 />
