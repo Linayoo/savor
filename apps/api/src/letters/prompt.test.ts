@@ -6,6 +6,9 @@ import {
   type LetterMoment,
 } from "./prompt";
 
+const HAIKU = "eu.anthropic.claude-haiku-4-5-20251001-v1:0";
+const SONNET = "eu.anthropic.claude-sonnet-5-5";
+
 // Midday in October 2026, the same date in Zurich and Honolulu
 const at = (day: number) => Date.UTC(2026, 9, day, 12);
 
@@ -16,30 +19,36 @@ const moment = (overrides: Partial<LetterMoment> = {}): LetterMoment => ({
   ...overrides,
 });
 
+const build = (input: Parameters<typeof buildLetterRequest>[0]) =>
+  buildLetterRequest(input, HAIKU);
+
 const userContent = (request: ReturnType<typeof buildLetterRequest>) =>
   request.messages[0].content;
 
 describe("buildLetterRequest", () => {
   it("builds the exact request: the month's moments as data, oldest first, with their local dates and kinds", () => {
-    const request = buildLetterRequest({
-      month: "2026-10",
-      timeZone: "Europe/Zurich",
-      moments: [
-        // 23:00 in Zurich
-        moment({
-          createdAt: Date.UTC(2026, 9, 31, 22),
-          kind: null,
-          text: "Fog over the lake",
-        }),
-        moment(),
-        moment({ createdAt: at(12), kind: "book", text: "Finished Stoner" }),
-      ],
-    });
+    const request = buildLetterRequest(
+      {
+        month: "2026-10",
+        timeZone: "Europe/Zurich",
+        moments: [
+          // 23:00 in Zurich
+          moment({
+            createdAt: Date.UTC(2026, 9, 31, 22),
+            kind: null,
+            text: "Fog over the lake",
+          }),
+          moment(),
+          moment({ createdAt: at(12), kind: "book", text: "Finished Stoner" }),
+        ],
+      },
+      HAIKU,
+    );
 
+    // Haiku 4.5 thinks only when asked, and sampling stays at its defaults
     expect(request).toEqual({
       anthropic_version: "bedrock-2023-05-31",
       max_tokens: 800,
-      thinking: { type: "between_tools" },
       system: LETTER_SYSTEM_PROMPT,
       messages: [
         {
@@ -60,13 +69,42 @@ describe("buildLetterRequest", () => {
     });
   });
 
+  it("asks Sonnet 5.5, which can't turn thinking off, for the least thinking, so the letter keeps its tokens", () => {
+    const { thinking, ...rest } = buildLetterRequest(
+      { month: "2026-10", timeZone: "Europe/Zurich", moments: [moment()] },
+      SONNET,
+    );
+
+    expect(thinking).toEqual({ type: "between_tools" });
+    expect(rest).toEqual(
+      build({
+        month: "2026-10",
+        timeZone: "Europe/Zurich",
+        moments: [moment()],
+      }),
+    );
+  });
+
+  it.each([
+    "global.anthropic.claude-haiku-4-5-20251001-v1:0",
+    "global.anthropic.claude-sonnet-5-5",
+    "eu.anthropic.claude-opus-5-5",
+  ])("refuses a model it has no settings for: %s", (modelId) => {
+    expect(() =>
+      buildLetterRequest(
+        { month: "2026-10", timeZone: "Europe/Zurich", moments: [moment()] },
+        modelId,
+      ),
+    ).toThrow(`No letter settings for ${modelId}`);
+  });
+
   it("dates each moment in the person's time zone", () => {
     // 23:30 UTC on 31 October is 1 November in Zurich, still 31 October in Honolulu
     const late = moment({ createdAt: Date.UTC(2026, 9, 31, 23, 30) });
 
     expect(
       userContent(
-        buildLetterRequest({
+        build({
           month: "2026-10",
           timeZone: "Pacific/Honolulu",
           moments: [late],
@@ -85,7 +123,7 @@ describe("buildLetterRequest", () => {
     };
 
     const sent = JSON.stringify(
-      buildLetterRequest({
+      build({
         month: "2026-10",
         timeZone: "Europe/Zurich",
         moments: [withIds],
@@ -105,7 +143,7 @@ describe("buildLetterRequest", () => {
 
   it("escapes the words so a moment can't close or open the delimiters", () => {
     const content = userContent(
-      buildLetterRequest({
+      build({
         month: "2026-10",
         timeZone: "Europe/Zurich",
         moments: [
@@ -124,7 +162,7 @@ describe("buildLetterRequest", () => {
 
   it("cuts each moment's words at 1000 characters, without splitting a character", () => {
     const content = userContent(
-      buildLetterRequest({
+      build({
         month: "2026-10",
         timeZone: "Europe/Zurich",
         moments: [moment({ text: "a".repeat(999) + "🌊🌊" })],
@@ -137,7 +175,7 @@ describe("buildLetterRequest", () => {
   it("keeps a moment without words as its date and kind: a photo was kept", () => {
     expect(
       userContent(
-        buildLetterRequest({
+        build({
           month: "2026-10",
           timeZone: "Europe/Zurich",
           moments: [moment({ text: "  " })],
@@ -148,7 +186,7 @@ describe("buildLetterRequest", () => {
 
   it("refuses more than 150 moments, which the job never sends", () => {
     expect(() =>
-      buildLetterRequest({
+      build({
         month: "2026-10",
         timeZone: "Europe/Zurich",
         moments: Array.from({ length: 151 }, () => moment()),

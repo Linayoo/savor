@@ -38,7 +38,8 @@ const month = letterMonthSchema.parse(values.month);
 const timeZone = timeZoneSchema.parse(
   values["time-zone"] ?? Intl.DateTimeFormat().resolvedOptions().timeZone,
 );
-const modelId = process.env.LETTER_MODEL_ID ?? "eu.anthropic.claude-sonnet-5-5";
+const modelId =
+  process.env.LETTER_MODEL_ID ?? "eu.anthropic.claude-haiku-4-5-20251001-v1:0";
 
 const sampleSchema = z.array(
   z.object({
@@ -99,7 +100,7 @@ if (moments.length < 3) {
 
 const input = { month, timeZone, moments };
 if (values["dry-run"]) {
-  console.log(JSON.stringify(buildLetterRequest(input), null, 2));
+  console.log(JSON.stringify(buildLetterRequest(input, modelId), null, 2));
   process.exit(0);
 }
 

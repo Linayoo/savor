@@ -17,7 +17,7 @@ export async function invokeLetterModel(
       modelId,
       contentType: "application/json",
       accept: "application/json",
-      body: JSON.stringify(buildLetterRequest(input)),
+      body: JSON.stringify(buildLetterRequest(input, modelId)),
     }),
   );
   return JSON.parse(new TextDecoder().decode(response.body));

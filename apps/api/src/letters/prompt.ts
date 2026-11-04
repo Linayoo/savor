@@ -53,15 +53,35 @@ const escape = (text: string) =>
 const cut = (text: string) =>
   Array.from(text.trim()).slice(0, MAX_MOMENT_CHARS).join("");
 
-export function buildLetterRequest({
-  month,
-  timeZone,
-  moments,
-}: {
-  month: LetterMonth;
-  timeZone: string;
-  moments: LetterMoment[];
-}) {
+// What each model the letters may use needs in its request, by exact EU
+// inference profile id (ADR 0007). Thinking would count towards max_tokens:
+// Sonnet 5.5 can't turn it off, so it gets the least; Haiku 4.5 thinks only
+// when asked.
+const MODEL_SETTINGS: Record<string, { thinking?: { type: "between_tools" } }> =
+  {
+    "eu.anthropic.claude-sonnet-5-5": { thinking: { type: "between_tools" } },
+    "eu.anthropic.claude-haiku-4-5-20251001-v1:0": {},
+  };
+
+export function letterModelSettings(modelId: string) {
+  const settings = MODEL_SETTINGS[modelId];
+  if (!settings) throw new Error(`No letter settings for ${modelId}`);
+  return settings;
+}
+
+export function buildLetterRequest(
+  {
+    month,
+    timeZone,
+    moments,
+  }: {
+    month: LetterMonth;
+    timeZone: string;
+    moments: LetterMoment[];
+  },
+  modelId: string,
+) {
+  const settings = letterModelSettings(modelId);
   if (moments.length > MAX_LETTER_MOMENTS) {
     throw new Error(`At most ${MAX_LETTER_MOMENTS} moments`);
   }
@@ -81,9 +101,8 @@ export function buildLetterRequest({
 
   return {
     anthropic_version: "bedrock-2023-05-31",
-    // Thinking would count towards this; the letter runs without it
     max_tokens: 800,
-    thinking: { type: "between_tools" },
+    ...settings,
     system: LETTER_SYSTEM_PROMPT,
     messages: [
       {

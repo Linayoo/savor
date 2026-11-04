@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { bedrockLetterWriter } from "./bedrock-writer";
 import { buildLetterRequest, type LetterMoment } from "./prompt";
 
-const modelId = "eu.anthropic.claude-sonnet-5-5";
+const modelId = "eu.anthropic.claude-haiku-4-5-20251001-v1:0";
 const letter = Array.from({ length: 120 }, () => "light").join(" ");
 
 type Sent = {
@@ -73,7 +73,9 @@ describe("bedrockLetterWriter", () => {
         accept: "application/json",
       }),
     });
-    expect(JSON.parse(sent[0].body)).toEqual(buildLetterRequest(input));
+    expect(JSON.parse(sent[0].body)).toEqual(
+      buildLetterRequest(input, modelId),
+    );
     expect(result).toEqual({
       ok: true,
       body: letter,
