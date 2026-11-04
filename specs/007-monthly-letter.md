@@ -1,6 +1,6 @@
 # 007: The monthly letter
 
-Status: approved
+Status: done
 
 ## Problem
 
