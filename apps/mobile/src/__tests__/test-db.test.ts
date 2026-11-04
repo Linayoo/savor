@@ -11,7 +11,7 @@ describe("createTestDb", () => {
       )
       .map((t) => t.name);
 
-    expect(tables).toEqual(["app_meta", "moment_photos", "moments"]);
+    expect(tables).toEqual(["app_meta", "letters", "moment_photos", "moments"]);
   });
 
   it("gives every test its own empty database", () => {

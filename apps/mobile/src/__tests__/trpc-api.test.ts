@@ -1,5 +1,5 @@
 import { SyncError } from "@/sync/api";
-import { createTrpcSyncApi } from "@/sync/trpc-api";
+import { createTrpcLettersApi, createTrpcSyncApi } from "@/sync/trpc-api";
 
 type Call = { url: string; method: string; headers: Headers; body?: string };
 
@@ -166,5 +166,73 @@ describe("createTrpcSyncApi", () => {
       api(fetch, getToken).pull({ sinceVersion: 0, limit: 200 }),
     ).rejects.toMatchObject({ kind: "unauthorized" });
     expect(calls).toEqual([]);
+  });
+});
+
+describe("createTrpcLettersApi", () => {
+  const lettersApi = (fetch: typeof globalThis.fetch) =>
+    createTrpcLettersApi({
+      url: "https://api.example.com/",
+      getToken: async () => "token-a",
+      fetch,
+    });
+
+  it("lists letters and reads the settings with the token", async () => {
+    const letter = {
+      id: "0b6f8f4e-7d7a-4f7e-9d43-5a1e2c3b4d5f",
+      month: "2026-10",
+      body: "Dear you",
+      createdAt: 1,
+    };
+    const { calls, fetch } = fakeFetch((call) => ({
+      status: 200,
+      body: {
+        result: {
+          data: call.url.endsWith("letters.list")
+            ? { letters: [letter] }
+            : { enabled: false, timeZone: null },
+        },
+      },
+    }));
+
+    expect(await lettersApi(fetch).list()).toEqual({ letters: [letter] });
+    expect(await lettersApi(fetch).getSettings()).toEqual({
+      enabled: false,
+      timeZone: null,
+    });
+    expect(calls.map((c) => [c.method, c.url])).toEqual([
+      ["GET", "https://api.example.com/letters.list"],
+      ["GET", "https://api.example.com/letters.getSettings"],
+    ]);
+    expect(calls[1].headers.get("authorization")).toBe("Bearer token-a");
+  });
+
+  it("saves the settings with the time zone as a POST", async () => {
+    const { calls, fetch } = fakeFetch(() => ({
+      status: 200,
+      body: { result: { data: { enabled: true, timeZone: "Europe/Zurich" } } },
+    }));
+
+    await lettersApi(fetch).setSettings({
+      enabled: true,
+      timeZone: "Europe/Zurich",
+    });
+
+    expect(calls[0]).toMatchObject({
+      url: "https://api.example.com/letters.setSettings",
+      method: "POST",
+    });
+    expect(JSON.parse(calls[0].body!)).toEqual({
+      enabled: true,
+      timeZone: "Europe/Zurich",
+    });
+  });
+
+  it("fails with the same errors as sync", async () => {
+    const { fetch } = fakeFetch(() => ({ status: 502, body: {} }));
+
+    await expect(lettersApi(fetch).list()).rejects.toEqual(
+      new SyncError("unavailable"),
+    );
   });
 });

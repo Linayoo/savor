@@ -3,12 +3,16 @@ import {
   photoChangeSchema,
   pullInputSchema,
   pushInputSchema,
+  setLetterSettingsInputSchema,
+  type Letter,
+  type LetterSettings,
   type MomentChange,
   type PhotoChange,
   type PullOutput,
   type PushInput,
   type CreateUploadOutput,
 } from "@savor/shared";
+import type { LettersApi } from "@/letters/api";
 import { SyncError, type SyncApi, type SyncErrorKind } from "@/sync/api";
 
 type Stored<T> = T & { userId: string; version: number };
@@ -20,7 +24,10 @@ type Method =
   | "confirmUpload"
   | "downloadUrls"
   | "upload"
-  | "download";
+  | "download"
+  | "listLetters"
+  | "getLetterSettings"
+  | "setLetterSettings";
 
 const DOWNLOAD_URL = "https://fake-s3.test/download/";
 
@@ -42,6 +49,11 @@ export class FakeSyncServer {
   private versions = new Map<string, number>();
   private faults: { method: Method; kind: SyncErrorKind }[] = [];
   private hold: { started: () => void; released: Promise<void> } | null = null;
+  // Letters (spec 007), written by the server's job, never by the phone
+  private letters = new Map<string, Letter[]>();
+  private letterSettings = new Map<string, LetterSettings>();
+  private listHold: { started: () => void; released: Promise<void> } | null =
+    null;
 
   // Every push the server received, accepted or not
   readonly pushes: { userId: string; input: PushInput }[] = [];
@@ -59,6 +71,38 @@ export class FakeSyncServer {
       confirmUpload: (input) => this.confirmUpload(userId, input.photoId),
       downloadUrls: (input) => this.downloadUrls(userId, input.photoIds),
     };
+  }
+
+  // A letters client signed in as userId
+  lettersApi(userId: string): LettersApi {
+    return {
+      list: () => this.listLetters(userId),
+      getSettings: () => this.getLetterSettings(userId),
+      setSettings: (input) => this.setLetterSettings(userId, input),
+    };
+  }
+
+  // As the letters job does
+  addLetter(userId: string, letter: Letter) {
+    this.letters.set(userId, [...(this.letters.get(userId) ?? []), letter]);
+  }
+
+  letterSettingsOf(userId: string): LetterSettings {
+    return (
+      this.letterSettings.get(userId) ?? { enabled: false, timeZone: null }
+    );
+  }
+
+  // Keeps the next letters.list in flight until release()
+  holdNextLettersList() {
+    let started!: () => void;
+    let release!: () => void;
+    const startedPromise = new Promise<void>((r) => (started = r));
+    this.listHold = {
+      started,
+      released: new Promise<void>((r) => (release = r)),
+    };
+    return { started: startedPromise, release };
   }
 
   // The next call to method fails with kind, as a network error or the
@@ -176,6 +220,36 @@ export class FakeSyncServer {
         : [];
     });
     return { urls };
+  }
+
+  private async listLetters(userId: string) {
+    await Promise.resolve();
+    this.takeFault("listLetters");
+    const hold = this.listHold;
+    if (hold) {
+      this.listHold = null;
+      hold.started();
+      await hold.released;
+    }
+    const letters = [...(this.letters.get(userId) ?? [])].sort((a, b) =>
+      b.month.localeCompare(a.month),
+    );
+    return { letters: structuredClone(letters) };
+  }
+
+  private async getLetterSettings(userId: string) {
+    await Promise.resolve();
+    this.takeFault("getLetterSettings");
+    return this.letterSettingsOf(userId);
+  }
+
+  private async setLetterSettings(userId: string, raw: unknown) {
+    await Promise.resolve();
+    this.takeFault("setLetterSettings");
+    const parsed = setLetterSettingsInputSchema.safeParse(raw);
+    if (!parsed.success) throw new SyncError("rejected", parsed.error.message);
+    this.letterSettings.set(userId, parsed.data);
+    return parsed.data;
   }
 
   private takeFault(method: Method) {

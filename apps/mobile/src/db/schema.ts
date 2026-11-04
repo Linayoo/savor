@@ -47,3 +47,13 @@ export const appMeta = sqliteTable("app_meta", {
   key: text("key").primaryKey(),
   value: text("value").notNull(),
 });
+
+// The monthly letters (spec 007): a read-only copy of the server's, replaced
+// from letters.list and cleared on sign-out
+export const letters = sqliteTable("letters", {
+  id: text("id").primaryKey(),
+  // YYYY-MM
+  month: text("month").notNull(),
+  body: text("body").notNull(),
+  createdAt: integer("created_at").notNull(),
+});
