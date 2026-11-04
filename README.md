@@ -273,10 +273,10 @@ To check the roles after `terraform apply`, the letters role may call the profil
 
 ```
 ACCOUNT="$(aws sts get-caller-identity --query Account --output text)"
-PROFILE="arn:aws:bedrock:eu-central-1:$ACCOUNT:inference-profile/eu.anthropic.claude-haiku-4-5-20251001-v1:0"
+PROFILE="arn:aws:bedrock:eu-central-1:${ACCOUNT}:inference-profile/eu.anthropic.claude-haiku-4-5-20251001-v1:0"
 MODEL="arn:aws:bedrock:eu-west-1::foundation-model/anthropic.claude-haiku-4-5-20251001-v1:0"
 check() {
-  aws iam simulate-principal-policy --policy-source-arn "arn:aws:iam::$ACCOUNT:role/$1" \
+  aws iam simulate-principal-policy --policy-source-arn "arn:aws:iam::${ACCOUNT}:role/$1" \
     --action-names bedrock:InvokeModel --resource-arns "$2" "${@:3}" \
     --query 'EvaluationResults[0].EvalDecision' --output text
 }
@@ -284,7 +284,7 @@ check savor-letters "$PROFILE"  # allowed
 check savor-letters "$MODEL" --context-entries \
   "ContextKeyName=bedrock:InferenceProfileArn,ContextKeyValues=$PROFILE,ContextKeyType=string"  # allowed
 check savor-letters "$MODEL"    # implicitDeny: not through the profile
-check savor-letters "arn:aws:bedrock:eu-central-1:$ACCOUNT:inference-profile/global.anthropic.claude-haiku-4-5-20251001-v1:0"  # implicitDeny
+check savor-letters "arn:aws:bedrock:eu-central-1:${ACCOUNT}:inference-profile/global.anthropic.claude-haiku-4-5-20251001-v1:0"  # implicitDeny
 check savor-api "$PROFILE"      # implicitDeny
 ```
 
