@@ -211,6 +211,8 @@ describe("LETTER_SYSTEM_PROMPT", () => {
     "Dear you",
     "names, titles and places exactly as written",
     "what matters",
+    "don't repeat a phrase",
+    "a history or meaning it doesn't have",
   ])("carries the rule about %j", (rule) => {
     expect(LETTER_SYSTEM_PROMPT).toContain(rule);
   });
