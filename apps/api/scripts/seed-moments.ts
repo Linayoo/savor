@@ -1,15 +1,17 @@
 import { MAX_PUSH_ITEMS, pushOutputSchema } from "@savor/shared";
 import { createHash } from "node:crypto";
 import { parseArgs } from "node:util";
-import { env, mutation, signIn } from "./api-client";
+import { env, mutation, signIn, signInAs } from "./api-client";
 import { readSamples } from "./samples";
 
 // `pnpm --filter @savor/api seed-moments --file samples.json`: keeps sample
-// moments for the smoke user A with the dates in the file, through the
-// deployed API's sync.push, as the phone would. For trying the monthly letter
-// on a month that has passed (README, "Monthly letters").
+// moments with the dates in the file, through the deployed API's sync.push, as
+// the phone would. For trying the monthly letter on a month that has passed
+// (README, "Monthly letters").
 //
-// Needs the smoke test's environment and your AWS credentials for the sign-in.
+// The account is SEED_EMAIL with SEED_PASSWORD when both are set (from the
+// gitignored apps/api/.env.seed), otherwise the smoke user A. Needs the smoke
+// test's environment and your AWS credentials for the sign-in.
 // Running it again with the same file changes nothing: each moment's id comes
 // from the user, its date and its words.
 
@@ -17,7 +19,10 @@ const { values } = parseArgs({ options: { file: { type: "string" } } });
 if (!values.file) throw new Error("--file is required");
 
 const samples = await readSamples(values.file);
-const { idToken, sub } = await signIn("SMOKE_USER_A");
+const email = process.env.SEED_EMAIL ?? env("SMOKE_USER_A_EMAIL");
+const { idToken, sub } = process.env.SEED_EMAIL
+  ? await signInAs(email, env("SEED_PASSWORD"))
+  : await signIn("SMOKE_USER_A");
 
 // A name-based UUID (version 5 layout) from SHA-256
 function idOf(createdAt: number, text: string): string {
@@ -52,6 +57,4 @@ for (let i = 0; i < moments.length; i += MAX_PUSH_ITEMS) {
   }
   version = pushOutputSchema.parse(body.result.data).version;
 }
-console.log(
-  `Kept ${moments.length} moments for ${env("SMOKE_USER_A_EMAIL")} (version ${version})`,
-);
+console.log(`Kept ${moments.length} moments for ${email} (version ${version})`);

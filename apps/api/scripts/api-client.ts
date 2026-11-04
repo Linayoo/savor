@@ -20,19 +20,20 @@ const clientId = env("SAVOR_CLIENT_ID");
 const cognito = new CognitoIdentityProviderClient({});
 
 export async function signIn(prefix: "SMOKE_USER_A" | "SMOKE_USER_B") {
+  return signInAs(env(`${prefix}_EMAIL`), env(`${prefix}_PASSWORD`));
+}
+
+export async function signInAs(email: string, password: string) {
   const { AuthenticationResult: tokens } = await cognito.send(
     new AdminInitiateAuthCommand({
       UserPoolId: userPoolId,
       ClientId: clientId,
       AuthFlow: "ADMIN_USER_PASSWORD_AUTH",
-      AuthParameters: {
-        USERNAME: env(`${prefix}_EMAIL`),
-        PASSWORD: env(`${prefix}_PASSWORD`),
-      },
+      AuthParameters: { USERNAME: email, PASSWORD: password },
     }),
   );
   if (!tokens?.IdToken || !tokens.AccessToken) {
-    throw new Error(`${prefix} didn't get tokens; is the password permanent?`);
+    throw new Error(`${email} didn't get tokens; is the password permanent?`);
   }
   return {
     idToken: tokens.IdToken,

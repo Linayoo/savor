@@ -298,7 +298,18 @@ set -a; source apps/api/.env.smoke; set +a
 pnpm --filter @savor/api seed-moments --file ~/savor-samples.json
 ```
 
-Then sign in as the smoke user A on a fresh simulator (Device > Erase All Content and Settings, or a new one) and turn on Monthly letter. A simulator whose moments belong to another account refuses the smoke user: "This phone holds moments from another account."
+To seed your own account instead, for example the one on your iPhone, put its sign-in in `apps/api/.env.seed`, which is gitignored, and source it before running the command:
+
+```
+SEED_EMAIL=you@example.com
+SEED_PASSWORD=...
+```
+
+```
+set -a; source apps/api/.env.seed; set +a
+```
+
+Otherwise, sign in as the smoke user A on a fresh simulator (Device > Erase All Content and Settings, or a new one) and turn on Monthly letter. A simulator whose moments belong to another account refuses the smoke user: "This phone holds moments from another account."
 
 To write a month's letters by hand, for example October 2026, invoke the function and read the summary it returns; its logs hold only counts, reasons and ids:
 
