@@ -265,16 +265,16 @@ The output should have no GPS lines, no camera make or model, and an image size 
 
 ### Monthly letters
 
-Once a month, the letters Lambda writes a letter from each person's moments with Claude Sonnet 5.5 on Amazon Bedrock, through the EU inference profile (spec 007, ADR 0007). A schedule runs it at 08:00 Zurich time on the 1st, 2nd and 3rd; each run writes only the letters still missing.
+Once a month, the letters Lambda writes a letter from each person's moments with Claude on Amazon Bedrock, through an EU inference profile (spec 007, ADR 0007). The model is Terraform's `letter_model_id`: Claude Haiku 4.5 until the account has access to Claude Sonnet 5.5, then `eu.anthropic.claude-sonnet-5-5`. A schedule runs it at 08:00 Zurich time on the 1st, 2nd and 3rd; each run writes only the letters still missing.
 
-Model access, once per account: Bedrock enables a model on its first call, which needs AWS Marketplace permissions and, for Anthropic, a use case form. Do it with your admin user in the Bedrock console, in eu-central-1: open the playground, choose Claude Sonnet 5.5, submit the form if it asks, and send any message. The letters role never gets Marketplace permissions.
+Model access, once per account: Bedrock enables a model on its first call, which needs AWS Marketplace permissions and, for Anthropic, a use case form. Do it with your admin user in the Bedrock console, in eu-central-1: open the playground, choose the model, submit the form if it asks, and send any message. The letters role never gets Marketplace permissions.
 
 To check the roles after `terraform apply`, the letters role may call the profile and the model only through it, and the API role can't call Bedrock:
 
 ```
 ACCOUNT="$(aws sts get-caller-identity --query Account --output text)"
-PROFILE="arn:aws:bedrock:eu-central-1:$ACCOUNT:inference-profile/eu.anthropic.claude-sonnet-5-5"
-MODEL="arn:aws:bedrock:eu-west-1::foundation-model/anthropic.claude-sonnet-5-5"
+PROFILE="arn:aws:bedrock:eu-central-1:$ACCOUNT:inference-profile/eu.anthropic.claude-haiku-4-5-20251001-v1:0"
+MODEL="arn:aws:bedrock:eu-west-1::foundation-model/anthropic.claude-haiku-4-5-20251001-v1:0"
 check() {
   aws iam simulate-principal-policy --policy-source-arn "arn:aws:iam::$ACCOUNT:role/$1" \
     --action-names bedrock:InvokeModel --resource-arns "$2" "${@:3}" \
@@ -284,7 +284,7 @@ check savor-letters "$PROFILE"  # allowed
 check savor-letters "$MODEL" --context-entries \
   "ContextKeyName=bedrock:InferenceProfileArn,ContextKeyValues=$PROFILE,ContextKeyType=string"  # allowed
 check savor-letters "$MODEL"    # implicitDeny: not through the profile
-check savor-letters "arn:aws:bedrock:eu-central-1:$ACCOUNT:inference-profile/global.anthropic.claude-sonnet-5-5"  # implicitDeny
+check savor-letters "arn:aws:bedrock:eu-central-1:$ACCOUNT:inference-profile/global.anthropic.claude-haiku-4-5-20251001-v1:0"  # implicitDeny
 check savor-api "$PROFILE"      # implicitDeny
 ```
 
