@@ -3,12 +3,16 @@ import {
   createUploadOutputSchema,
   downloadUrlsInputSchema,
   downloadUrlsOutputSchema,
+  letterSettingsSchema,
+  listLettersOutputSchema,
   photoIdInputSchema,
   pullInputSchema,
   pullOutputSchema,
   pushInputSchema,
   pushOutputSchema,
+  setLetterSettingsInputSchema,
 } from "@savor/shared";
+import { getSettings, listLetters, setSettings } from "./letters/procedures";
 import { deletePushedPhotoFiles } from "./photos/delete-files";
 import { confirmUpload, createUpload, downloadUrls } from "./photos/procedures";
 import { pull } from "./sync/pull";
@@ -53,6 +57,18 @@ export const appRouter = router({
       .query(({ ctx, input }) =>
         downloadUrls(ctx.db, ctx.photos, ctx.userId, input.photoIds),
       ),
+  }),
+  letters: router({
+    getSettings: protectedProcedure
+      .output(letterSettingsSchema)
+      .query(({ ctx }) => getSettings(ctx.db, ctx.userId)),
+    setSettings: protectedProcedure
+      .input(setLetterSettingsInputSchema)
+      .output(letterSettingsSchema)
+      .mutation(({ ctx, input }) => setSettings(ctx.db, ctx.userId, input)),
+    list: protectedProcedure
+      .output(listLettersOutputSchema)
+      .query(({ ctx }) => listLetters(ctx.db, ctx.userId)),
   }),
 });
 

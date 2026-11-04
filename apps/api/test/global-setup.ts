@@ -10,7 +10,7 @@ export async function setup() {
   await client.connect();
   try {
     await client.query(
-      "truncate table moments, moment_photos, user_sync_state",
+      "truncate table moments, moment_photos, user_sync_state, letter_settings, letters",
     );
     // Test database only: a write of a moment with FAILING_TEXT fails in the
     // database, so tests can make a push fail partway through its writes

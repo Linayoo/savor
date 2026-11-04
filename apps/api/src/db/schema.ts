@@ -1,10 +1,12 @@
 import type { MomentKind } from "@savor/shared";
 import {
   bigint,
+  boolean,
   index,
   integer,
   pgTable,
   text,
+  unique,
   uuid,
 } from "drizzle-orm/pg-core";
 
@@ -51,3 +53,30 @@ export const userSyncState = pgTable("user_sync_state", {
   userId: text("user_id").primaryKey(),
   version: ms("version").notNull(),
 });
+
+// The monthly letter (spec 007). No row until letters are first turned on:
+// they're off. Turning them off keeps the time zone.
+export const letterSettings = pgTable("letter_settings", {
+  userId: text("user_id").primaryKey(),
+  enabled: boolean("enabled").notNull(),
+  timeZone: text("time_zone").notNull(),
+  updatedAt: ms("updated_at").notNull(),
+});
+
+// Written by the letters job, never by the phone. One per user and month, so
+// a rerun can't add a second.
+export const letters = pgTable(
+  "letters",
+  {
+    id: uuid("id").primaryKey(),
+    userId: text("user_id").notNull(),
+    // YYYY-MM, in the user's time zone
+    month: text("month").notNull(),
+    body: text("body").notNull(),
+    model: text("model").notNull(),
+    inputTokens: integer("input_tokens").notNull(),
+    outputTokens: integer("output_tokens").notNull(),
+    createdAt: ms("created_at").notNull(),
+  },
+  (t) => [unique("letters_user_month_unique").on(t.userId, t.month)],
+);
