@@ -85,11 +85,28 @@ Request parameters for Sonnet 5.5:
 - Thinking counts toward `max_tokens`, so a letter capped near 800 tokens runs with `between_tools`.
 - A safety decline returns HTTP 200 with `stop_reason: "refusal"`, and is treated like any other failed check.
 
+Sonnet 5.5 not yet available to the account (checked 2026-11-04):
+
+- The Bedrock console says Sonnet 5.5 is "not available for this account". Access has been requested from AWS.
+- Meanwhile the letters use Claude Haiku 4.5, which works in the playground. Switch to Sonnet 5.5 when access is granted.
+  - Model `anthropic.claude-haiku-4-5-20251001-v1:0`, through `eu.anthropic.claude-haiku-4-5-20251001-v1:0`.
+  - From eu-central-1 the profile routes to the same six EU Regions as Sonnet 5.5's.
+  - Launched 2025-10-16, EOL "no sooner than 2026-10-16", a date already past. AWS still lists it as Active, with at least 6 months of legacy period once an end date is set. Another reason not to stay on it.
+  - Abuse detection doesn't retain its traffic.
+  - The Anthropic API price is 1 USD per million input tokens and 5 USD per million output tokens: about half a cent a letter.
+- Request parameters for Haiku 4.5:
+  - Thinking is manual (`budget_tokens`) and off when the request leaves it out. `between_tools` is a Sonnet 5.5 setting, so the request leaves `thinking` out.
+  - `temperature` is accepted but not sent, as with Sonnet 5.5.
+  - Max output is 64K tokens, so `max_tokens: 800` stays.
+- The request takes its thinking setting from a table keyed by the exact EU profile ID, so switching stays a Terraform change: set `letter_model_id` to `eu.anthropic.claude-sonnet-5-5`. Any other ID, a `global.` one included, fails at the Lambda's start.
+- IAM is unchanged: the policy reads the profile's ARN and its model ARNs from `aws_bedrock_inference_profile`, so it follows `letter_model_id`.
+
 SDK: `@aws-sdk/client-bedrock-runtime` 3.1161.0, the same release line as the API's other AWS clients. The code uses `InvokeModelCommand` with an `anthropic_version: "bedrock-2023-05-31"` body, so the exact request is plain JSON a test can compare.
 
 ## References
 
 - [Claude Sonnet 5.5 on Bedrock](https://docs.aws.amazon.com/bedrock/latest/userguide/model-card-anthropic-claude-sonnet-5-5.html): IDs, Regional availability, EU destination Regions
+- [Claude Haiku 4.5 on Bedrock](https://docs.aws.amazon.com/bedrock/latest/userguide/model-card-anthropic-claude-haiku-4-5.html): IDs, EU destination Regions, lifecycle
 - [Claude Haiku 5.5 on Bedrock](https://docs.aws.amazon.com/bedrock/latest/userguide/model-card-anthropic-claude-haiku-5-5.html)
 - [Supported Regions and models for inference profiles](https://docs.aws.amazon.com/bedrock/latest/userguide/inference-profiles-support.html)
 - [Prerequisites for inference profiles](https://docs.aws.amazon.com/bedrock/latest/userguide/inference-profiles-prereq.html): the IAM policy for a profile and its models
