@@ -39,9 +39,9 @@ Savor helps a person notice moments as they happen. Looking back is half of savo
 
 ## The letter's voice (prompt rules)
 
-- Warm, simple, unhurried. Like a friend who was paying attention.
-- Built from the moments' own words and details; it may group them by feeling or theme.
-- Never: judgement, praise of productivity, counts or statistics, comparisons with other months, advice, goals, or anything not in the moments.
+- Warm, simple, unhurried. Like a friend who was paying attention. No greeting: it begins with the month.
+- Built from the moments' own words and details, with names, titles and places as written; it may group them by feeling or theme.
+- Never: judgement, praise of productivity, verdicts on what matters or praise for showing up, counts or statistics, comparisons with other months, advice, goals, or anything not in the moments.
 - Moments are passed to the model as data inside clear delimiters, with an instruction to treat their content only as material for the letter.
 - A letter that fails basic checks (empty, outside 80–350 words, or contains the delimiter text) is not saved and counts as a failure.
 

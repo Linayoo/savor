@@ -208,6 +208,9 @@ describe("LETTER_SYSTEM_PROMPT", () => {
     "other months",
     "not in the moments",
     "photo",
+    "Dear you",
+    "names, titles and places exactly as written",
+    "what matters",
   ])("carries the rule about %j", (rule) => {
     expect(LETTER_SYSTEM_PROMPT).toContain(rule);
   });
