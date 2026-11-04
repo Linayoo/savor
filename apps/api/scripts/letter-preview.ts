@@ -1,11 +1,9 @@
 import { BedrockRuntimeClient } from "@aws-sdk/client-bedrock-runtime";
 import {
   letterMonthSchema,
-  momentKindSchema,
   pullOutputSchema,
   timeZoneSchema,
 } from "@savor/shared";
-import { readFile } from "node:fs/promises";
 import { parseArgs } from "node:util";
 import { z } from "zod";
 import { invokeLetterModel } from "../src/letters/bedrock-writer";
@@ -15,6 +13,7 @@ import {
   MAX_LETTER_MOMENTS,
   type LetterMoment,
 } from "../src/letters/prompt";
+import { readSamples } from "./samples";
 
 // `pnpm --filter @savor/api letter-preview --month YYYY-MM`: writes a letter
 // through the real model and prints it, without saving it (spec 007). For
@@ -40,23 +39,6 @@ const timeZone = timeZoneSchema.parse(
 );
 const modelId =
   process.env.LETTER_MODEL_ID ?? "eu.anthropic.claude-haiku-4-5-20251001-v1:0";
-
-const sampleSchema = z.array(
-  z.object({
-    date: z.iso.datetime({ offset: true }),
-    kind: momentKindSchema.nullable().default(null),
-    text: z.string(),
-  }),
-);
-
-async function fromFile(path: string): Promise<LetterMoment[]> {
-  const samples = sampleSchema.parse(JSON.parse(await readFile(path, "utf8")));
-  return samples.map(({ date, kind, text }) => ({
-    createdAt: Date.parse(date),
-    kind,
-    text,
-  }));
-}
 
 // Everything A has kept and not deleted, page by page
 async function fromSmokeUser(): Promise<LetterMoment[]> {
@@ -87,7 +69,9 @@ const monthOf = new Intl.DateTimeFormat("en-CA", {
   month: "2-digit",
   timeZone,
 });
-const all = values.file ? await fromFile(values.file) : await fromSmokeUser();
+const all = values.file
+  ? await readSamples(values.file)
+  : await fromSmokeUser();
 const moments = all
   .filter((m) => monthOf.format(m.createdAt) === month)
   .sort((a, b) => b.createdAt - a.createdAt)

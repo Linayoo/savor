@@ -18,7 +18,8 @@
     "test": "vitest run",
     "smoke": "tsx scripts/smoke.ts",
     "photo-checks": "tsx scripts/photo-checks.ts",
-    "letter-preview": "tsx scripts/letter-preview.ts"
+    "letter-preview": "tsx scripts/letter-preview.ts",
+    "seed-moments": "tsx scripts/seed-moments.ts"
   },
   "dependencies": {
     "@aws-sdk/client-bedrock-runtime": "^3.1161.0",

@@ -288,6 +288,18 @@ check savor-letters "arn:aws:bedrock:eu-central-1:${ACCOUNT}:inference-profile/g
 check savor-api "$PROFILE"      # implicitDeny
 ```
 
+To try a letter for a month that has already passed, keep moments with past dates for the smoke user A. `seed-moments` sends them through the deployed API's `sync.push`, as the phone would, from a file in `letter-preview`'s format below. It needs the smoke test's environment and your AWS credentials, and running it again with the same file changes nothing:
+
+```
+export SAVOR_API_URL="$(terraform -chdir=infra/app output -raw api_url)"
+export SAVOR_USER_POOL_ID="$(terraform -chdir=infra/app output -raw user_pool_id)"
+export SAVOR_CLIENT_ID="$(terraform -chdir=infra/app output -raw client_id)"
+set -a; source apps/api/.env.smoke; set +a
+pnpm --filter @savor/api seed-moments --file ~/savor-samples.json
+```
+
+Then sign in as the smoke user A on a fresh simulator (Device > Erase All Content and Settings, or a new one) and turn on Monthly letter. A simulator whose moments belong to another account refuses the smoke user: "This phone holds moments from another account."
+
 To write a month's letters by hand, for example October 2026, invoke the function and read the summary it returns; its logs hold only counts, reasons and ids:
 
 ```
