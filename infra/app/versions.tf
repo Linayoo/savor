@@ -46,4 +46,7 @@ locals {
   function_name = "savor-api"
   # Built from the name, so the ECR policy can name the function before it exists
   function_arn = "arn:aws:lambda:${local.region}:${local.account_id}:function:${local.function_name}"
+  # The letters job, from the same image (letters.tf)
+  letters_function_name = "savor-letters"
+  letters_function_arn  = "arn:aws:lambda:${local.region}:${local.account_id}:function:${local.letters_function_name}"
 }

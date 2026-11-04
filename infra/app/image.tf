@@ -27,7 +27,7 @@ resource "aws_ecr_lifecycle_policy" "api" {
   })
 }
 
-# Lambda pulls the image as itself; only for this function
+# Lambda pulls the image as itself; only for the API and letters functions
 resource "aws_ecr_repository_policy" "api" {
   repository = aws_ecr_repository.api.name
   policy     = data.aws_iam_policy_document.ecr_lambda_pull.json
@@ -46,7 +46,7 @@ data "aws_iam_policy_document" "ecr_lambda_pull" {
     condition {
       test     = "StringEquals"
       variable = "aws:SourceArn"
-      values   = [local.function_arn]
+      values   = [local.function_arn, local.letters_function_arn]
     }
   }
 }

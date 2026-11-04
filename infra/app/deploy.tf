@@ -1,5 +1,6 @@
 # What the deploy job may do with the role infra/bootstrap created, and
-# nothing more: push this image, update this function, read this secret
+# nothing more: push this image, update the functions that run it, read this
+# secret
 data "aws_iam_role" "deploy" {
   name = "savor-deploy"
 }
@@ -36,7 +37,7 @@ data "aws_iam_policy_document" "deploy" {
   statement {
     sid       = "UpdateApiFunction"
     actions   = ["lambda:UpdateFunctionCode", "lambda:GetFunctionConfiguration"]
-    resources = [aws_lambda_function.api.arn]
+    resources = [aws_lambda_function.api.arn, aws_lambda_function.letters.arn]
   }
 
   # For migrations

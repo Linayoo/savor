@@ -23,3 +23,8 @@ output "photos_bucket" {
   description = "For the manual photo checks"
   value       = aws_s3_bucket.photos.bucket
 }
+
+output "letters_function_name" {
+  description = "For invoking the letters job by hand"
+  value       = aws_lambda_function.letters.function_name
+}
