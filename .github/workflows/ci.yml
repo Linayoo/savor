@@ -103,7 +103,8 @@ jobs:
     env:
       AWS_REGION: eu-central-1
       ECR_REPOSITORY: savor-api
-      FUNCTION_NAME: savor-api
+      # The API and the letters job run the same image (infra/app/letters.tf)
+      FUNCTION_NAMES: savor-api savor-letters
       DATABASE_SECRET_ID: savor/database
     steps:
       - uses: actions/checkout@v7
@@ -144,14 +145,16 @@ jobs:
           echo "::add-mask::$(node -e 'console.log(new URL(process.argv[1]).password)' "$url")"
           DATABASE_URL="$url" pnpm --filter @savor/api db:migrate
 
-      - name: Update the function
+      - name: Update the functions
         env:
           IMAGE: ${{ steps.ecr.outputs.registry }}/${{ env.ECR_REPOSITORY }}:${{ github.sha }}
         run: |
-          aws lambda update-function-code --function-name "$FUNCTION_NAME" \
-            --image-uri "$IMAGE" --query '{image: ImageUri, status: LastUpdateStatus}'
-          aws lambda wait function-updated --function-name "$FUNCTION_NAME"
-          aws lambda wait function-active --function-name "$FUNCTION_NAME"
+          for name in $FUNCTION_NAMES; do
+            aws lambda update-function-code --function-name "$name" \
+              --image-uri "$IMAGE" --query '{image: ImageUri, status: LastUpdateStatus}'
+            aws lambda wait function-updated --function-name "$name"
+            aws lambda wait function-active --function-name "$name"
+          done
 
       - name: Smoke check
         env:
