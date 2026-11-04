@@ -382,7 +382,7 @@ The user pool has deletion protection, and destroying the Neon project deletes t
   - [x] Auth and deployment on AWS (spec 004)
   - [x] Sign-in and moment sync (spec 005)
   - [x] Photo uploads (spec 006)
-- [ ] M3: monthly letter (LLM API, scheduled)
+- [x] M3: monthly letter (LLM API, scheduled)
 - [ ] M4: enrichment agent (SQS, tools)
 - [ ] M5: TestFlight via CI, demo video
 - [ ] M6: ask your moments (RAG, optional)
