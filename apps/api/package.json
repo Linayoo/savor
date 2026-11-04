@@ -17,7 +17,8 @@
     "lint": "eslint .",
     "test": "vitest run",
     "smoke": "tsx scripts/smoke.ts",
-    "photo-checks": "tsx scripts/photo-checks.ts"
+    "photo-checks": "tsx scripts/photo-checks.ts",
+    "letter-preview": "tsx scripts/letter-preview.ts"
   },
   "dependencies": {
     "@aws-sdk/client-bedrock-runtime": "^3.1161.0",

@@ -263,6 +263,24 @@ exiftool photo.jpg
 
 The output should have no GPS lines, no camera make or model, and an image size whose longer side is at most 2048.
 
+### Monthly letters
+
+Once a month, the letters Lambda writes a letter from each person's moments with Claude Sonnet 5.5 on Amazon Bedrock, through the EU inference profile (spec 007, ADR 0007).
+
+`letter-preview` writes a letter through the real model and prints it, without saving it, for tuning the prompt in `apps/api/src/letters/prompt.ts`. It uses the smoke user A's moments, with the smoke test's environment, and your AWS credentials for Bedrock:
+
+```
+pnpm --filter @savor/api letter-preview --month 2026-10
+```
+
+Or sample moments from a file, `[{ "date": "2026-10-04T13:00:00+02:00", "kind": "meal", "text": "..." }]`, which needs only the Bedrock credentials:
+
+```
+pnpm --filter @savor/api letter-preview --month 2026-10 --file samples.json
+```
+
+The month follows your computer's time zone unless you pass `--time-zone Europe/Zurich`. `--dry-run` prints the exact request instead of sending it. Each letter costs about a cent.
+
 ### Tearing down
 
 The user pool has deletion protection, and destroying the Neon project deletes the data with it.
