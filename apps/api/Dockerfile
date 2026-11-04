@@ -17,7 +17,8 @@ COPY packages/shared packages/shared
 COPY apps/api apps/api
 RUN pnpm --filter @savor/api build
 
-# Only the bundle goes into the image
+# Only the bundles go into the image. The letters function runs the same image
+# with its command set to letters.handler (infra/app/letters.tf).
 FROM public.ecr.aws/lambda/nodejs:24
-COPY --from=build /build/apps/api/dist/index.mjs ${LAMBDA_TASK_ROOT}/
+COPY --from=build /build/apps/api/dist/index.mjs /build/apps/api/dist/letters.mjs ${LAMBDA_TASK_ROOT}/
 CMD ["index.handler"]

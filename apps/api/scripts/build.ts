@@ -1,10 +1,12 @@
 import { build } from "esbuild";
 
-// `pnpm --filter @savor/api build`: bundles the Lambda entry point and every
-// dependency, including @savor/shared, into dist/index.mjs for the image
+// `pnpm --filter @savor/api build`: bundles each Lambda entry point and every
+// dependency, including @savor/shared, for the image: dist/index.mjs for the
+// API, dist/letters.mjs for the letters job
 await build({
-  entryPoints: ["src/lambda.ts"],
-  outfile: "dist/index.mjs",
+  entryPoints: { index: "src/lambda.ts", letters: "src/letters/lambda.ts" },
+  outdir: "dist",
+  outExtension: { ".js": ".mjs" },
   bundle: true,
   platform: "node",
   target: "node24",
