@@ -1,6 +1,6 @@
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
-import { StyleSheet, Text } from "react-native";
+import { StyleSheet, Switch, Text, View } from "react-native";
 import { useAccount } from "@/account";
 import {
   FormError,
@@ -10,6 +10,8 @@ import {
   TextLink,
   useSingleFlight,
 } from "@/components/account-form";
+import { useLetters } from "@/letters/provider";
+import { deviceTimeZone } from "@/letters/time-zone";
 import { useSync } from "@/sync-provider";
 import { syncLine } from "@/sync/sync-line";
 import { fonts } from "@/theme";
@@ -53,6 +55,7 @@ export default function Account() {
       <Text style={styles.label}>Signed in as</Text>
       <Text style={styles.email}>{account.session.email}</Text>
       <SyncLine />
+      <MonthlyLetterSwitch />
       <FormError
         message={signOutFailed ? "Couldn't sign out. Try again." : undefined}
       />
@@ -79,7 +82,57 @@ function SyncLine() {
   return <Text style={styles.syncLine}>{syncLine(status, online, now)}</Text>;
 }
 
+// Off until the explanation's "Turn on"; off again at once (spec 007)
+function MonthlyLetterSwitch() {
+  const { settings, saveSettings } = useLetters();
+  const { busy, run } = useSingleFlight();
+  const [failed, setFailed] = useState(false);
+
+  const change = (on: boolean) => {
+    if (on) {
+      router.push("/account/monthly-letter");
+      return;
+    }
+    void run(async () => {
+      setFailed(false);
+      const timeZone = settings?.timeZone ?? deviceTimeZone();
+      if (!timeZone) return setFailed(true);
+      await saveSettings(false, timeZone).catch(() => setFailed(true));
+    });
+  };
+
+  return (
+    <View style={styles.letter}>
+      <View style={styles.letterRow}>
+        <View style={styles.letterText}>
+          <Text style={styles.letterLabel}>Monthly letter</Text>
+          <Text style={styles.label}>
+            A letter from your moments, once a month.
+          </Text>
+        </View>
+        <Switch
+          accessibilityLabel="Monthly letter"
+          value={settings?.enabled ?? false}
+          disabled={!settings || busy}
+          accessibilityState={{ disabled: !settings || busy }}
+          onValueChange={change}
+          trackColor={{ true: "#A5532F" }}
+        />
+      </View>
+      <FormError
+        message={
+          failed ? "Couldn't change the monthly letter. Try again." : undefined
+        }
+      />
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
+  letter: { marginBottom: 20 },
+  letterRow: { flexDirection: "row", alignItems: "center", gap: 12 },
+  letterText: { flex: 1 },
+  letterLabel: { fontFamily: fonts.bodyMedium, fontSize: 16, color: "#2B2622" },
   label: { fontFamily: fonts.body, fontSize: 13, color: "#6B6158" },
   email: {
     fontFamily: fonts.serif,
