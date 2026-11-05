@@ -92,7 +92,7 @@ Opt-in
 
 - [x] Given I'm signed in, the Account screen shows the monthly letter switch, off. Verified: monthly-letter-setting tests (off when signed in, hidden until known, not offered signed out); `letters.getSettings` test; manual run on a simulator and an iPhone.
 - [x] Given I turn it on, I see the explanation first, and only "Turn on" enables it, saving my time zone. Verified: monthly-letter-setting tests (explains first, Turn on saves the phone's time zone, Not now changes nothing, no time zone changes nothing); `letters.setSettings` test; manual run on a simulator and an iPhone.
-- [ ] Given I turn it off, no new letters are written, and existing ones stay.
+- [x] Given I turn it off, no new letters are written, and existing ones stay. Verified: job test "writes no letter when letters are off"; `letters.list` test "keeps the letters after letters are turned off", which fails when turning letters off deletes them; monthly-letter-setting test turning letters off at once.
 
 Writing
 
