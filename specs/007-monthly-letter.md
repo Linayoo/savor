@@ -110,7 +110,7 @@ Writing
 Reading
 
 - [x] Given letters, the Letters tab lists them newest first, and each opens as a letter. Verified: Letters tab and letter screen tests; letters-store and `letters.list` ordering tests; manual run on a simulator and an iPhone.
-- [x] Given no connection, previously fetched letters still open. Verified: Letters tab test without a connection; provider test keeping letters when the server can't be reached. Not tried by hand offline.
+- [x] Given no connection, previously fetched letters still open. Verified: Letters tab test without a connection; provider test keeping letters when the server can't be reached. Manual run on 2026-11-05: with the app already loaded and Wi-Fi off, the Letters tab and a letter opened from the cache. A cold start offline can't be tried with a development build, which loads its JavaScript from the dev server; recheck it with the TestFlight build.
 - [x] Given no letters, or signed out, the tab shows its quiet line. Verified: Letters tab tests (no letters, letters off, signed out).
 - [x] Given I sign out, the cached letters are removed from the phone. Verified: provider tests (removed on sign-out, including a fetch in flight at sign-out); letters-store test.
 - [x] User B can never get user A's letters or settings. Verified: `letters.list` and `letters.setSettings` tests for other users; all three procedures refuse calls without a signed-in user.
@@ -119,7 +119,7 @@ Security and infrastructure
 
 - [x] The letters Lambda can invoke only the configured model, and the API Lambda can't invoke Bedrock at all. Verified: IAM policy simulator on 2026-11-04 (README checks, now in docs/operations.md): the EU profile and its model through the profile allowed; the model directly, the global profile, and the API role denied.
 - [x] The schedule can invoke only the letters Lambda. Verified: policy review; the schedule role's only statement is `lambda:InvokeFunction` on the letters function's ARN (`infra/app/letters.tf`). Not simulated.
-- [ ] Terraform fmt and validate pass; plan shows no changes after apply.
+- [x] Terraform fmt and validate pass; plan shows no changes after apply. Verified: fmt and validate in CI on every push; `terraform plan` on `infra/app` showed no changes on 2026-11-05.
 
 Quality
 
