@@ -90,48 +90,48 @@ Infrastructure (Terraform, `infra/app`):
 
 Opt-in
 
-- [ ] Given I'm signed in, the Account screen shows the monthly letter switch, off.
-- [ ] Given I turn it on, I see the explanation first, and only "Turn on" enables it, saving my time zone.
+- [x] Given I'm signed in, the Account screen shows the monthly letter switch, off. Verified: monthly-letter-setting tests (off when signed in, hidden until known, not offered signed out); `letters.getSettings` test; manual run on a simulator and an iPhone.
+- [x] Given I turn it on, I see the explanation first, and only "Turn on" enables it, saving my time zone. Verified: monthly-letter-setting tests (explains first, Turn on saves the phone's time zone, Not now changes nothing, no time zone changes nothing); `letters.setSettings` test; manual run on a simulator and an iPhone.
 - [ ] Given I turn it off, no new letters are written, and existing ones stay.
 
 Writing
 
-- [ ] Given letters on, and 3 or more moments last month in my time zone, then the job writes exactly one letter for that month.
-- [ ] Given fewer than 3 moments, or letters off, then no letter is written and nothing is shown about it.
-- [ ] Given moments near midnight at a month boundary, they're counted in the month of my time zone.
-- [ ] Given the month hasn't ended yet in my time zone when the job runs, then no letter is written until a later run.
-- [ ] Given the job runs again (day 2 or 3, or a manual rerun), then no second letter is written.
-- [ ] Given writing fails for one user, then other users still get theirs, and the failed one is retried on the next run.
-- [ ] Given deleted moments, they're never sent to the model.
-- [ ] The model receives only dates, kinds and words of that user's moments for that month: checked by a test on the exact request built.
-- [ ] A letter outside the checks (empty, too short or long, contains the delimiters) is not saved.
-- [ ] Logs contain no moment text and no letter body.
+- [x] Given letters on, and 3 or more moments last month in my time zone, then the job writes exactly one letter for that month. Verified: job test "writes exactly one letter for a month with 3 moments"; manual invoke for 2026-10 on 2026-11-04 wrote the letter that arrived on the phone.
+- [x] Given fewer than 3 moments, or letters off, then no letter is written and nothing is shown about it. Verified: job tests (fewer than 3 moments; letters off or never on); Letters tab tests (one quiet line, never counts letters or moments).
+- [x] Given moments near midnight at a month boundary, they're counted in the month of my time zone. Verified: job test "counts moments near midnight in the month of the person's time zone".
+- [x] Given the month hasn't ended yet in my time zone when the job runs, then no letter is written until a later run. Verified: job test "waits until the month has ended in the person's time zone".
+- [x] Given the job runs again (day 2 or 3, or a manual rerun), then no second letter is written. Verified: job test "never writes a second letter for the same month"; the unique (user, month) constraint test.
+- [x] Given writing fails for one user, then other users still get theirs, and the failed one is retried on the next run. Verified: job test with one thrown error and one failed check among three users; both are written on the next run.
+- [x] Given deleted moments, they're never sent to the model. Verified: job test "never sends deleted moments, other months' or other people's"; mutation check below.
+- [x] The model receives only dates, kinds and words of that user's moments for that month: checked by a test on the exact request built. Verified: prompt tests (the exact request for each model; only date, kind and words, with ids, email and photo names absent); job test on what the writer receives.
+- [x] A letter outside the checks (empty, too short or long, contains the delimiters) is not saved. Verified: `checkLetter` tests for each reason (malformed, refusal, truncated, stopped, empty, too short, too long, delimiter); job test that a failed check stores nothing.
+- [x] Logs contain no moment text and no letter body. Verified: job test "logs counts and token totals, never a moment's words or a letter"; failures log the error's name only.
 
 Reading
 
-- [ ] Given letters, the Letters tab lists them newest first, and each opens as a letter.
-- [ ] Given no connection, previously fetched letters still open.
-- [ ] Given no letters, or signed out, the tab shows its quiet line.
-- [ ] Given I sign out, the cached letters are removed from the phone.
-- [ ] User B can never get user A's letters or settings.
+- [x] Given letters, the Letters tab lists them newest first, and each opens as a letter. Verified: Letters tab and letter screen tests; letters-store and `letters.list` ordering tests; manual run on a simulator and an iPhone.
+- [x] Given no connection, previously fetched letters still open. Verified: Letters tab test without a connection; provider test keeping letters when the server can't be reached. Not tried by hand offline.
+- [x] Given no letters, or signed out, the tab shows its quiet line. Verified: Letters tab tests (no letters, letters off, signed out).
+- [x] Given I sign out, the cached letters are removed from the phone. Verified: provider tests (removed on sign-out, including a fetch in flight at sign-out); letters-store test.
+- [x] User B can never get user A's letters or settings. Verified: `letters.list` and `letters.setSettings` tests for other users; all three procedures refuse calls without a signed-in user.
 
 Security and infrastructure
 
-- [ ] The letters Lambda can invoke only the configured model, and the API Lambda can't invoke Bedrock at all.
-- [ ] The schedule can invoke only the letters Lambda.
+- [x] The letters Lambda can invoke only the configured model, and the API Lambda can't invoke Bedrock at all. Verified: IAM policy simulator on 2026-11-04 (README checks, now in docs/operations.md): the EU profile and its model through the profile allowed; the model directly, the global profile, and the API role denied.
+- [x] The schedule can invoke only the letters Lambda. Verified: policy review; the schedule role's only statement is `lambda:InvokeFunction` on the letters function's ARN (`infra/app/letters.tf`). Not simulated.
 - [ ] Terraform fmt and validate pass; plan shows no changes after apply.
 
 Quality
 
-- [ ] Job tests on Postgres with a fake `LetterWriter`: thresholds, time zones, idempotency, failures, caps.
-- [ ] The prompt is built by a pure function, tested for its rules and for the data it includes and leaves out.
-- [ ] Mutation check: removing the user filter or the deleted-moment filter in the job's query makes a test fail.
-- [ ] `pnpm typecheck`, `pnpm lint`, `pnpm format:check` and `pnpm test` pass locally and in CI, and the iOS export passes.
+- [x] Job tests on Postgres with a fake `LetterWriter`: thresholds, time zones, idempotency, failures, caps. Verified: `apps/api/src/letters/job.test.ts`.
+- [x] The prompt is built by a pure function, tested for its rules and for the data it includes and leaves out. Verified: `apps/api/src/letters/prompt.test.ts`.
+- [x] Mutation check: removing the user filter or the deleted-moment filter in the job's query makes a test fail. Verified: removing the user, deleted, month start or month end filter each failed a job test; so did removing the user filter in `letters.list` and the provider's in-flight guard.
+- [x] `pnpm typecheck`, `pnpm lint`, `pnpm format:check` and `pnpm test` pass locally and in CI, and the iOS export passes. Verified: each commit checked on its own locally, iOS export included; CI on every push.
 
 Manual
 
-- [ ] Run `letter-preview` on real moments, read the letter, and adjust the prompt until it sounds right.
-- [ ] Invoke the letters Lambda once by hand for the previous month and see the letter arrive in the Letters tab on a simulator.
+- [x] Run `letter-preview` on real moments, read the letter, and adjust the prompt until it sounds right. Verified: three runs on sample moments with Haiku 4.5; the prompt was adjusted twice (no greeting, names as written, no verdicts; no commentary or repeated phrases). Real moments were read in the letter on the iPhone. Reread after switching to Sonnet 5.5.
+- [x] Invoke the letters Lambda once by hand for the previous month and see the letter arrive in the Letters tab on a simulator. Verified: invoked for 2026-10 on 2026-11-04 with seeded moments for the smoke user; the letter arrived on a simulator, and later on an iPhone.
 
 ## Out of scope
 
