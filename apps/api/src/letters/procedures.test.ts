@@ -135,6 +135,25 @@ describe("letters.list", () => {
     expect(await as(newUserId()).letters.list()).toEqual({ letters: [] });
   });
 
+  it("keeps the letters after letters are turned off", async () => {
+    const userId = newUserId();
+    const user = as(userId);
+    await user.letters.setSettings({
+      enabled: true,
+      timeZone: "Europe/Zurich",
+    });
+    const october = await storeLetter(userId, "2026-10", "October");
+
+    await user.letters.setSettings({
+      enabled: false,
+      timeZone: "Europe/Zurich",
+    });
+
+    expect(await user.letters.list()).toEqual({
+      letters: [expect.objectContaining({ id: october, body: "October" })],
+    });
+  });
+
   it("is refused without a signed-in user", async () => {
     await expect(as(null).letters.list()).rejects.toEqual(unauthorized);
   });
