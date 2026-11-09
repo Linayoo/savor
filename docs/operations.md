@@ -75,7 +75,7 @@ The Lambda needs an image before it can exist, so the first deploy runs from you
      pnpm --filter @savor/api db:migrate
    ```
 
-5. Tell the deploy job where to deploy. These are repository variables, not secrets: GitHub signs in to AWS with OIDC and stores no keys.
+5. Tell the deploy job where to deploy. These are repository variables, not secrets: GitHub signs in to AWS with OIDC, so no AWS keys are stored in GitHub.
 
    ```
    gh variable set AWS_DEPLOY_ROLE_ARN --body "$(terraform -chdir=infra/bootstrap output -raw deploy_role_arn)"
@@ -235,6 +235,65 @@ pnpm --filter @savor/api letter-preview --month 2026-10 --file samples.json
 ```
 
 The month follows your computer's time zone unless you pass `--time-zone Europe/Zurich`. `--dry-run` prints the exact request instead of sending it. Each letter costs about a cent.
+
+## Releasing the iOS app
+
+The release app, "Savor" (`com.linayoo.savor`), is built and signed on EAS and uploaded to TestFlight by [`release-mobile.yml`](../.github/workflows/release-mobile.yml) (spec 008). Local builds are "Savor Dev" (`com.linayoo.savor.dev`), so both fit on one iPhone with separate data. Run the `eas` commands from `apps/mobile`, where `pnpm eas` uses the eas-cli version in its `package.json`.
+
+### One-time setup
+
+1. In App Store Connect, the app record "Savor: Moments" exists for `com.linayoo.savor`. Its Apple ID (App Information > General Information) is the `ascAppId` in `apps/mobile/eas.json`. Under TestFlight > Internal Testing, create the group `Internal` with yourself in it and automatic distribution on.
+
+2. Create an App Store Connect API key: Users and Access > Integrations > App Store Connect API > Team Keys > **+**, named `EAS Submit`, with the App Manager role. Download the `.p8` once and keep it outside the repo, for example in `~/Keys/`. Note its Key ID and the Issuer ID.
+
+3. Link the Expo project, once (already done: `@savorthemoment/savor`, whose id is in `app.config.ts`):
+
+   ```
+   pnpm eas login
+   pnpm eas init
+   ```
+
+4. Store the app's configuration as EAS environment variables for production builds. They're the same values as `apps/mobile/.env`, none of them secret:
+
+   ```
+   pnpm eas env:set --environment production --visibility plaintext --name EXPO_PUBLIC_API_URL --value "$(terraform -chdir=../../infra/app output -raw api_url)"
+   pnpm eas env:set --environment production --visibility plaintext --name EXPO_PUBLIC_USER_POOL_ID --value "$(terraform -chdir=../../infra/app output -raw user_pool_id)"
+   pnpm eas env:set --environment production --visibility plaintext --name EXPO_PUBLIC_USER_POOL_CLIENT_ID --value "$(terraform -chdir=../../infra/app output -raw client_id)"
+   ```
+
+5. Set up signing and the API key in EAS, signing in with your Apple ID when asked:
+
+   ```
+   pnpm eas credentials --platform ios
+   ```
+
+   Choose the `production` profile, then:
+   - Build Credentials: set up all, which creates the distribution certificate and provisioning profile;
+   - App Store Connect: Manage your API Key > add a new key > use an existing one, with the `.p8` path, Key ID and Issuer ID;
+   - Set up your project to use an API Key for EAS Submit.
+
+   The workflow runs non-interactively, so it can't create any of these itself.
+
+6. On expo.dev, in the account's settings, create a robot user `github-release` with the Developer role, then an access token for it. Save it as the workflow's only secret; `gh` asks for the value, so it stays out of your shell history:
+
+   ```
+   gh secret set EXPO_TOKEN
+   ```
+
+### Before the first install on an iPhone
+
+A development build installed before spec 008 has the release bundle identifier, `com.linayoo.savor`. Installing from TestFlight would replace it and keep its data. Rebuild it first as "Savor Dev" (`pnpm --filter @savor/mobile ios --device`), then delete the old "savor" app, then install from TestFlight.
+
+### Releasing
+
+Raise `version` in `apps/mobile/package.json` for a new version, then push an annotated tag with that version. Its message becomes the "What to Test" note:
+
+```
+git tag -a mobile-v1.0.0 -m "What changed, for testers"
+git push origin mobile-v1.0.0
+```
+
+The workflow fails before building if the tag's version isn't the app's, if the tag has no message, or if a check fails. EAS then builds, increments the build number and submits; the build appears in TestFlight once Apple has processed it.
 
 ## Tearing down
 

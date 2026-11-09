@@ -35,10 +35,12 @@ flowchart LR
   letters --> neon
   letters -- "EU inference profile" --> bedrock["Amazon Bedrock<br/>Claude"]
 
-  gha["GitHub Actions"] -- "OIDC role, no stored keys" --> ecr["ECR image"]
+  gha["GitHub Actions"] -- "OIDC role, no AWS keys stored" --> ecr["ECR image"]
   gha -- "migrations" --> neon
   gha -- "update, smoke check" --> api
   gha -- "update" --> letters
+  gha -- "mobile-v tag" --> eas["EAS Build and Submit"]
+  eas --> testflight["TestFlight"]
 ```
 
 - **The phone is the source of truth.** A moment is saved to SQLite on the phone first, so keeping one never waits for the network ([ADR 0005](docs/adr/0005-local-first-sync.md)). In the background, the sync engine pushes local changes and pulls everything newer than the last version it saw. The server gives each change a per-user version, keeps deletes as tombstones, and lets the edit that reaches it last win, so a stale edit can't bring back a deleted moment. This is tested on Postgres ([sync tests](apps/api/src/sync/sync.test.ts#L160)) and with two simulated devices ([two-device tests](apps/mobile/src/__tests__/sync-two-devices.test.ts#L149)). Photo records sync with their moments; the files follow separately, and other devices show a placeholder until a file arrives.
@@ -47,6 +49,7 @@ flowchart LR
 - **Photos go straight between the phone and a private S3 bucket**, through short-lived presigned URLs that the API signs. The API never handles the bytes ([spec 006](specs/006-photo-uploads.md)).
 - **Once a month, a second Lambda writes letters.** It's started by EventBridge Scheduler on the 1st to 3rd at 08:00 Zurich time. It reads each opted-in person's moments for the month and asks Claude on Bedrock, through the EU inference profile, for a short letter ([spec 007](specs/007-monthly-letter.md), [ADR 0007](docs/adr/0007-llm-provider-and-data.md)).
 - **CI deploys through an OIDC role**, with no AWS keys stored in GitHub. A push to `main` that changes the API builds the image, runs the migrations, updates both functions and smoke-checks the API. All infrastructure is Terraform.
+- **The iOS app ships from a tag.** Pushing `mobile-vX.Y.Z` runs the same checks, builds the release app on EAS and uploads it to TestFlight ([spec 008](specs/008-testflight-release.md)). The only secret in GitHub is the Expo token; signing and the App Store Connect key stay in EAS.
 
 Deploying and operating it: [docs/operations.md](docs/operations.md).
 
@@ -55,7 +58,7 @@ Deploying and operating it: [docs/operations.md](docs/operations.md).
 - **One person's data never reaches another.** A push that touches another user's row is rejected whole, and pulls are filtered by the token's user. Tested in [`sync.test.ts`](apps/api/src/sync/sync.test.ts#L214), and checked against the deployed API by the [smoke test](apps/api/scripts/smoke.ts) ([spec 004, verified criteria](specs/004-auth-and-deploy.md#L87)).
 - **Photos leave the phone without their location.** The phone uploads a re-encoded copy, at most 2048 px ([test](apps/mobile/src/__tests__/photo-transfer.test.ts#L14)). The upload form allows exactly one JPEG of up to 10 MB, at one key, for 5 minutes ([test](apps/api/src/photos/s3-storage.test.ts#L28)). Real uploaded objects were checked with exiftool: no GPS or EXIF tags ([spec 006](specs/006-photo-uploads.md#L93)).
 - **An LLM feature with guardrails.** The model gets only the month's dates, kinds and words, escaped inside delimiters, and a test pins the [exact request](apps/api/src/letters/prompt.test.ts#L29). Before a reply is saved, it's [checked](apps/api/src/letters/prompt.test.ts#L221) for refusals, truncation, length and leaked delimiters. The job waits until the month has ended in the person's time zone, never sends deleted or other people's moments, and never writes a letter twice ([job tests](apps/api/src/letters/job.test.ts#L197)). Mutation checks confirmed that removing the user or deleted-moment filter fails a test.
-- **No keys to leak.** GitHub deploys with a short-lived OIDC role ([`github.tf`](infra/bootstrap/github.tf)). The letters Lambda calls Bedrock with its own IAM role, allowed only the EU profile and its models ([`letters.tf`](infra/app/letters.tf#L70)). The IAM policy simulator confirmed that the global profile, and the API's role, are denied.
+- **No AWS keys to leak.** No AWS keys are stored in GitHub: it deploys with a short-lived OIDC role ([`github.tf`](infra/bootstrap/github.tf)). The letters Lambda calls Bedrock with its own IAM role, allowed only the EU profile and its models ([`letters.tf`](infra/app/letters.tf#L70)). The IAM policy simulator confirmed that the global profile, and the API's role, are denied.
 - **Deploys that fail safe.** Every push runs typecheck, lint, format, about 500 tests (the API's against real Postgres), an iOS export and `terraform validate`. A deploy runs the migrations before it updates the functions, so a failing migration leaves the previous image running. This was checked with a deliberately failing migration ([spec 004](specs/004-auth-and-deploy.md#L95), [workflow](.github/workflows/ci.yml#L140)).
 
 ## How it's built
@@ -102,7 +105,7 @@ docs/adr/        architecture decisions
 | Data           | Neon Postgres; Postgres 17 in Docker locally; S3 for photos                                                    |
 | AWS            | Lambda (arm64 container image), API Gateway HTTP API, Cognito, EventBridge Scheduler, Secrets Manager, Bedrock |
 | Infrastructure | Terraform 1.16                                                                                                 |
-| CI/CD          | GitHub Actions with OIDC                                                                                       |
+| CI/CD          | GitHub Actions with OIDC; EAS Build and Submit to TestFlight                                                   |
 | Tests          | Vitest (API on Postgres, shared), Jest with React Native Testing Library (app)                                 |
 
 ## Running locally
@@ -155,6 +158,17 @@ pnpm typecheck && pnpm lint && pnpm format:check && pnpm test
 `pnpm test` runs about 500 tests: the shared schemas, the API against the `savor_test` database (so Postgres must be running), and the app with Jest. CI runs the same, plus an iOS export and `terraform validate`. Checks against the deployed system, such as the smoke test, the photo checks and `letter-preview`, are in [docs/operations.md](docs/operations.md).
 
 Code and docs are formatted with Prettier: `pnpm format`. To have `git blame` skip the commit that first formatted the repo, run `git config blame.ignoreRevsFile .git-blame-ignore-revs` once.
+
+## Releasing
+
+The iOS app goes to TestFlight from an annotated tag; its message becomes the build's "What to Test" note:
+
+```
+git tag -a mobile-v1.0.0 -m "What changed, for testers"
+git push origin mobile-v1.0.0
+```
+
+[`release-mobile.yml`](.github/workflows/release-mobile.yml) runs the same checks as every commit, fails if the tag isn't the version in `apps/mobile/package.json`, then builds the release app on EAS and submits it. The build appears in TestFlight after Apple's processing. A new version needs its number raised in `apps/mobile/package.json` first; build numbers go up by themselves. The one-time setup is in [docs/operations.md](docs/operations.md#releasing-the-ios-app).
 
 ## Roadmap
 
