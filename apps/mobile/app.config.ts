@@ -70,6 +70,11 @@ const config: ExpoConfig = {
     typedRoutes: true,
     reactCompiler: true,
   },
+  // The EAS project (eas init); builds and submissions use it
+  owner: "savorthemoment",
+  extra: {
+    eas: { projectId: "2c7ffe10-657c-436b-a32c-ae816256c4ae" },
+  },
 };
 
 export default config;

@@ -13,3 +13,7 @@ allowBuilds:
   "@parcel/watcher": false
   # esbuild (via drizzle-kit) gets its binary from optional platform packages
   esbuild: false
+  # eas-cli's dependencies: dtrace-provider is an optional DTrace binding and
+  # protobufjs's postinstall only checks versions; neither is needed to run eas
+  dtrace-provider: false
+  protobufjs: false
