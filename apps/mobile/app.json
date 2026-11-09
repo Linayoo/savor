@@ -5,12 +5,16 @@
     "version": "1.0.0",
     "platforms": ["ios", "android"],
     "orientation": "portrait",
-    "icon": "./assets/images/icon.png",
+    "icon": "./assets/icon/savor-icon.png",
     "scheme": "savor",
     "userInterfaceStyle": "automatic",
     "ios": {
       "bundleIdentifier": "com.linayoo.savor",
-      "icon": "./assets/expo.icon"
+      "icon": {
+        "light": "./assets/icon/savor-icon.png",
+        "dark": "./assets/icon/savor-icon-dark.png",
+        "tinted": "./assets/icon/savor-icon-tinted.png"
+      }
     },
     "android": {
       "package": "com.linayoo.savor",
@@ -27,9 +31,9 @@
       [
         "expo-splash-screen",
         {
-          "backgroundColor": "#208AEF",
-          "image": "./assets/images/splash-icon.png",
-          "imageWidth": 76
+          "backgroundColor": "#F6F1E8",
+          "image": "./assets/icon/savor-splash.png",
+          "imageWidth": 72
         }
       ],
       "expo-font",
