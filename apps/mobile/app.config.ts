@@ -22,6 +22,8 @@ const config: ExpoConfig = {
   userInterfaceStyle: "automatic",
   ios: {
     bundleIdentifier: identifier,
+    // Only standard HTTPS, so App Store Connect doesn't ask on every upload
+    config: { usesNonExemptEncryption: false },
     icon: {
       light: "./assets/icon/savor-icon.png",
       dark: "./assets/icon/savor-icon-dark.png",
@@ -52,6 +54,17 @@ const config: ExpoConfig = {
     "expo-status-bar",
     "expo-sqlite",
     "expo-secure-store",
+    [
+      "expo-image-picker",
+      {
+        cameraPermission:
+          "Savor uses the camera so you can add a photo to a moment.",
+        photosPermission:
+          "Savor uses your photo library so you can add photos to a moment.",
+        // Photos only, never video with sound
+        microphonePermission: false,
+      },
+    ],
   ],
   experiments: {
     typedRoutes: true,
