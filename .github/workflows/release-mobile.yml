@@ -1,0 +1,73 @@
+name: Release iOS app
+
+# Pushing an annotated tag mobile-vX.Y.Z builds the release app on EAS and
+# uploads it to TestFlight (spec 008). The tag's message becomes the build's
+# "What to Test" note. EXPO_TOKEN is the only secret; signing credentials and
+# the App Store Connect API key live in EAS.
+on:
+  push:
+    tags: ["mobile-v*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-mobile
+  cancel-in-progress: false
+
+jobs:
+  check:
+    uses: ./.github/workflows/checks.yml
+
+  version:
+    runs-on: ubuntu-26.04
+    outputs:
+      what-to-test: ${{ steps.notes.outputs.what-to-test }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Check the tag matches the app's version
+        run: |
+          tag_version="${GITHUB_REF_NAME#mobile-v}"
+          app_version="$(node -p 'require("./apps/mobile/package.json").version')"
+          if [ "$tag_version" != "$app_version" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME doesn't match the app's version $app_version (apps/mobile/package.json)"
+            exit 1
+          fi
+      - name: Read the tag's message
+        id: notes
+        run: |
+          # The checkout holds the commit, not the tag object with its message
+          git fetch --force origin "refs/tags/$GITHUB_REF_NAME:refs/tags/$GITHUB_REF_NAME"
+          if [ "$(git cat-file -t "$GITHUB_REF_NAME")" != tag ]; then
+            echo "::error::$GITHUB_REF_NAME has no message: tag with git tag -a"
+            exit 1
+          fi
+          {
+            echo "what-to-test<<NOTES_END"
+            git tag -l --format='%(contents:subject)%0a%0a%(contents:body)' "$GITHUB_REF_NAME"
+            echo "NOTES_END"
+          } >> "$GITHUB_OUTPUT"
+
+  release:
+    needs: [check, version]
+    runs-on: ubuntu-26.04
+    timeout-minutes: 120
+    defaults:
+      run:
+        working-directory: apps/mobile
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      # eas-cli is a devDependency, the same version as locally
+      - run: pnpm install --frozen-lockfile --filter @savor/mobile...
+      - name: Build on EAS and submit to TestFlight
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+          WHAT_TO_TEST: ${{ needs.version.outputs.what-to-test }}
+        run: |
+          pnpm eas build --platform ios --profile production \
+            --auto-submit --non-interactive --what-to-test "$WHAT_TO_TEST"
