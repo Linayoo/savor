@@ -161,12 +161,14 @@ Code and docs are formatted with Prettier: `pnpm format`. To have `git blame` sk
 
 ## Releasing
 
-The iOS app goes to TestFlight from an annotated tag; its message becomes the build's "What to Test" note:
+The iOS app goes to TestFlight from a tag:
 
 ```
-git tag -a mobile-v1.0.0 -m "What changed, for testers"
+git tag mobile-v1.0.0
 git push origin mobile-v1.0.0
 ```
+
+An annotated tag (`git tag -a`) can hold release notes in git, but isn't required. The "What to Test" note for testers is written in App Store Connect.
 
 [`release-mobile.yml`](.github/workflows/release-mobile.yml) runs the same checks as every commit, fails if the tag isn't the version in `apps/mobile/package.json`, then builds the release app on EAS and submits it. The build appears in TestFlight after Apple's processing. A new version needs its number raised in `apps/mobile/package.json` first; build numbers go up by themselves. The one-time setup is in [docs/operations.md](docs/operations.md#releasing-the-ios-app).
 

@@ -49,7 +49,7 @@ Savor only runs as a development build, which loads its JavaScript from the deve
 - `.github/workflows/release-mobile.yml`, triggered by a tag `mobile-v*`.
 - Steps: install, typecheck, lint, format check, tests; check that the tag's version equals the app's version; then `eas build --platform ios --profile production --auto-submit --non-interactive`, waiting for the result.
 - Secret: `EXPO_TOKEN` (an Expo robot access token), the only secret this workflow uses. No AWS or Apple keys in GitHub.
-- The build's TestFlight "What to Test" note comes from the tag's annotation message.
+- The build's TestFlight "What to Test" note is written by hand in App Store Connect; EAS sends it only on its Enterprise plan. Tags may be annotated, as release notes in git, but don't have to be.
 - README and project descriptions that say "no stored keys" are corrected to "no AWS keys stored in GitHub", since the Expo token is a stored secret.
 
 ## Release behavior checks

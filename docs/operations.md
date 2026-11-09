@@ -286,14 +286,14 @@ A development build installed before spec 008 has the release bundle identifier,
 
 ### Releasing
 
-Raise `version` in `apps/mobile/package.json` for a new version, then push an annotated tag with that version. Its message becomes the "What to Test" note:
+Raise `version` in `apps/mobile/package.json` for a new version, then push a tag with that version. Annotate it (`git tag -a`) if you want release notes in git; it isn't required:
 
 ```
-git tag -a mobile-v1.0.0 -m "What changed, for testers"
+git tag mobile-v1.0.0
 git push origin mobile-v1.0.0
 ```
 
-The workflow fails before building if the tag's version isn't the app's, if the tag has no message, or if a check fails. EAS then builds, increments the build number and submits; the build appears in TestFlight once Apple has processed it.
+The workflow fails before building if the tag's version isn't the app's or if a check fails. EAS then builds, increments the build number and submits; the build appears in TestFlight once Apple has processed it. Write the "What to Test" note in App Store Connect, under TestFlight, on the build. EAS sends that note only on its Enterprise plan.
 
 ## Tearing down
 
