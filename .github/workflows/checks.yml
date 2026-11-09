@@ -1,0 +1,46 @@
+name: Checks
+
+# The checks every commit and every release runs: install, typecheck, lint,
+# format, tests (the API's against Postgres) and the iOS JavaScript bundle.
+# Called by ci.yml and release-mobile.yml.
+on:
+  workflow_call:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-26.04
+    services:
+      # The API tests run against Postgres, like docker-compose.yml locally
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: savor
+          POSTGRES_PASSWORD: savor
+          POSTGRES_DB: savor_test
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U savor -d savor_test"
+          --health-interval 2s
+          --health-timeout 5s
+          --health-retries 15
+    env:
+      TEST_DATABASE_URL: postgres://savor:savor@localhost:5433/savor_test
+    steps:
+      - uses: actions/checkout@v7
+      - uses: pnpm/action-setup@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - run: pnpm format:check
+      - run: pnpm test
+      # Bundles the app's JavaScript for iOS; native builds need Xcode and
+      # happen locally (ADR 0006)
+      - run: pnpm --filter @savor/mobile exec expo export --platform ios --output-dir "$RUNNER_TEMP/ios-export"
