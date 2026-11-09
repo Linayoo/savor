@@ -1,0 +1,106 @@
+# 008: TestFlight release
+
+Status: approved
+
+## Problem
+
+Savor only runs as a development build, which loads its JavaScript from the developer's Mac and can't open on its own. This spec ships Savor as a real iOS app through TestFlight: a release build with everything inside, built and uploaded by an automated pipeline from a version tag, installed on the developer's own iPhone. It completes M5's first half; the demo video and README polish follow.
+
+## Principles
+
+- A release is a tag, not a manual build: pushing `mobile-v1.0.0` produces a TestFlight build, after the same checks as every commit.
+- The development app and the release app live side by side on one phone, so testing never risks real moments.
+- The release app contains no development tooling and no development logs.
+- Only internal testing in this spec. Nothing goes to App Review.
+
+## App identity
+
+- Display name on the home screen: Savor.
+- App Store Connect name: "Savor: Moments" (plain "Savor" may be taken; the home screen name can still be "Savor").
+- Bundle identifier: `com.linayoo.savor` for the release app.
+- Version `1.0.0`; build numbers managed by EAS and incremented automatically.
+- App icon: the Sparkle (Ivory) in `apps/mobile/assets/icon/`: `savor-icon.png` as the main icon, opaque (App Store requirement), and `savor-icon-dark.png` and `savor-icon-tinted.png` on transparent backgrounds for the dark and tinted home screen; SVG sources beside them.
+- Launch screen in the app's warm background color, `#F6F1E8`, with no text: the background alone if it renders, otherwise the small Sparkle mark on it.
+- Permission prompts, in plain words:
+  - Camera: "Savor uses the camera so you can add a photo to a moment."
+  - Photo library: "Savor uses your photo library so you can add photos to a moment."
+- Export compliance: Savor uses only standard HTTPS, so `ITSAppUsesNonExemptEncryption` is false and App Store Connect doesn't ask on every upload.
+
+## Two app variants
+
+- `app.json` becomes `app.config.ts`, reading `APP_VARIANT`:
+  - `development`: name "Savor Dev", bundle identifier `com.linayoo.savor.dev`, includes the development client.
+  - `production` (default): name "Savor", bundle identifier `com.linayoo.savor`.
+- Both can be installed on one iPhone at once, with separate data.
+- Local commands set `APP_VARIANT=development` (`pnpm mobile`, `pnpm ios`), so a local build is always "Savor Dev".
+- The simulators' current development builds keep working after one rebuild; their data stays with the dev bundle identifier from the next build on (acceptable: test data).
+- An iPhone's current development build uses `com.linayoo.savor`, the release identifier. Installing from TestFlight would replace it and keep its data, so first rebuild it as "Savor Dev", then delete the old app.
+
+## Build and upload
+
+- Expo Application Services (EAS): `eas.json` with `development` and `production` profiles.
+- `production`: store distribution, remote app version with automatic build number increments, environment `production`.
+- App configuration (`EXPO_PUBLIC_API_URL`, `EXPO_PUBLIC_USER_POOL_ID`, `EXPO_PUBLIC_USER_POOL_CLIENT_ID`) stored as EAS environment variables for `production`, not in the repo.
+- EAS Submit uploads the build to App Store Connect using an App Store Connect API key stored in EAS (not in GitHub).
+- Signing certificates and provisioning profiles managed by EAS.
+
+## Release workflow (GitHub Actions)
+
+- `.github/workflows/release-mobile.yml`, triggered by a tag `mobile-v*`.
+- Steps: install, typecheck, lint, format check, tests; check that the tag's version equals the app's version; then `eas build --platform ios --profile production --auto-submit --non-interactive`, waiting for the result.
+- Secret: `EXPO_TOKEN` (an Expo robot access token), the only secret this workflow uses. No AWS or Apple keys in GitHub.
+- The build's TestFlight "What to Test" note comes from the tag's annotation message.
+- README and project descriptions that say "no stored keys" are corrected to "no AWS keys stored in GitHub", since the Expo token is a stored secret.
+
+## Release behavior checks
+
+- `[auth]` and `[sync]` development logs are absent from the release build.
+- The release build talks to the production API and user pool.
+- The release build opens with no network, shows cached moments and letters, and syncs when the network returns.
+
+## Acceptance criteria
+
+Pipeline
+
+- [ ] Pushing tag `mobile-v1.0.0` runs the checks, builds, and uploads a build that appears in TestFlight without any manual step.
+- [ ] A tag whose version doesn't match the app's version fails before building.
+- [ ] A failing check stops the release before building.
+- [ ] `EXPO_TOKEN` is the workflow's only secret; no Apple or AWS credentials are stored in GitHub.
+
+App
+
+- [ ] Savor installs from TestFlight on my iPhone, next to "Savor Dev", with separate data.
+- [ ] The home screen shows "Savor" with the correct icon; the launch screen shows no text.
+- [ ] Camera and photo library prompts show the wording above.
+- [ ] No export compliance question appears for the build in App Store Connect.
+- [ ] I can create an account or sign in, keep moments with photos, and see them sync with a simulator.
+- [ ] The Letters tab shows letters for an account that has them.
+- [ ] Cold start offline: with flight mode on, the app opens and shows my moments and cached letters; turning it off, they sync (carried over from spec 007).
+- [ ] No development logs and no development menu in the release build.
+
+Docs
+
+- [ ] README: how to release (tag, workflow, TestFlight), and the one-time setup in docs/operations.md.
+- [ ] The roadmap ticks "TestFlight via CI".
+
+## One-time setup (developer)
+
+- Apple Developer Program membership.
+- App Store Connect app record (created): name "Savor: Moments", bundle ID com.linayoo.savor, SKU savor-ios, primary language English (U.S.).
+- App Store Connect API key with the App Manager role, uploaded to EAS.
+- Expo account and project, linked with `eas init`.
+- Expo robot access token saved as the GitHub secret `EXPO_TOKEN`.
+- Myself as internal tester in TestFlight.
+
+## Out of scope
+
+- External testers, Beta App Review and a privacy policy page
+- App Store release and App Review
+- Account deletion in the app (required before App Store release; its own spec)
+- Android builds
+- Over-the-air updates
+- Crash reporting
+
+## Open questions
+
+- "Savor: Moments" for App Store Connect, decided when creating the app record.
