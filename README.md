@@ -113,7 +113,7 @@ You need Node 24 (`nvm use` reads `.nvmrc`), pnpm through corepack, Docker, and 
 pnpm install
 ```
 
-**App.** It runs as a development build rather than in Expo Go, because Amplify Auth needs its own native module ([ADR 0006](docs/adr/0006-development-build.md)). `ios/` is generated and gitignored; native settings live in `apps/mobile/app.json`.
+**App.** It runs as a development build rather than in Expo Go, because Amplify Auth needs its own native module ([ADR 0006](docs/adr/0006-development-build.md)). `ios/` is generated and gitignored; native settings live in `apps/mobile/app.config.ts`. Local builds are "Savor Dev" (`com.linayoo.savor.dev`), so they sit next to the TestFlight app with their own data.
 
 1. Point the app at the deployed API and user pool. The values are the Terraform outputs `api_url`, `user_pool_id` and `client_id`; none of them is a secret.
 
@@ -124,12 +124,12 @@ pnpm install
 2. Build and install it on a simulator. This takes a few minutes the first time:
 
    ```
-   pnpm --filter @savor/mobile exec expo run:ios
+   pnpm --filter @savor/mobile ios
    ```
 
-3. After that, `pnpm mobile` serves the JavaScript with fast refresh. Build again only after adding a native package or changing `app.json`.
+3. After that, `pnpm mobile` serves the JavaScript with fast refresh. Build again only after adding a native package or changing `app.config.ts`.
 
-To try two devices, install the build on a second simulator with `expo run:ios --device "<simulator name>"` and sign in with the same account on both. On an iPhone, `expo run:ios --device` needs a signing team in Xcode. With a free Apple ID, the app stops opening after 7 days.
+To try two devices, install the build on a second simulator with `pnpm --filter @savor/mobile ios --device "<simulator name>"` and sign in with the same account on both. On an iPhone, `pnpm --filter @savor/mobile ios --device` needs a signing team in Xcode. With a free Apple ID, the app stops opening after 7 days.
 
 **API.** It runs locally against Postgres 17 in Docker, on port 5433:
 
