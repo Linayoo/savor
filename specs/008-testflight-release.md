@@ -63,26 +63,26 @@ Savor only runs as a development build, which loads its JavaScript from the deve
 
 Pipeline
 
-- [ ] Pushing tag `mobile-v1.0.0` runs the checks, builds, and uploads a build that appears in TestFlight without any manual step.
-- [ ] A tag whose version doesn't match the app's version fails before building.
-- [ ] A failing check stops the release before building.
-- [ ] `EXPO_TOKEN` is the workflow's only secret; no Apple or AWS credentials are stored in GitHub.
+- [x] Pushing tag `mobile-v1.0.0` runs the checks, builds, and uploads a build that appears in TestFlight without any manual step. Verified: `mobile-v1.0.0` (build 3) and `mobile-v1.0.1` (build 4) ran the checks, built on EAS and reached the Internal group with nothing done by hand. The first 1.0.0 run failed on unset credentials, then on `--what-to-test`, which EAS allows only on its Enterprise plan; the workflow no longer sends it.
+- [x] A tag whose version doesn't match the app's version fails before building. Verified: the version step, run in a throwaway clone, fails for a mismatched tag; `release` needs it, so nothing builds. Not exercised by pushing a wrong tag.
+- [x] A failing check stops the release before building. Verified: `release` needs the `check` job, the same reusable workflow as CI. Not exercised with a failing check.
+- [x] `EXPO_TOKEN` is the workflow's only secret; no Apple or AWS credentials are stored in GitHub. Verified: `release-mobile.yml` reads only `secrets.EXPO_TOKEN`; signing and the App Store Connect key live in EAS.
 
 App
 
-- [ ] Savor installs from TestFlight on my iPhone, next to "Savor Dev", with separate data.
-- [ ] The home screen shows "Savor" with the correct icon; the launch screen shows no text.
-- [ ] Camera and photo library prompts show the wording above.
-- [ ] No export compliance question appears for the build in App Store Connect.
-- [ ] I can create an account or sign in, keep moments with photos, and see them sync with a simulator.
-- [ ] The Letters tab shows letters for an account that has them.
-- [ ] Cold start offline: with flight mode on, the app opens and shows my moments and cached letters; turning it off, they sync (carried over from spec 007).
-- [ ] No development logs and no development menu in the release build.
+- [x] Savor installs from TestFlight on my iPhone, next to "Savor Dev", with separate data. Verified: 1.0.1 on the iPhone beside Savor Dev. 1.0.0 started signed in from Keychain tokens of the deleted development build; 1.0.1 clears them on first launch (fresh-install tests).
+- [x] The home screen shows "Savor" with the correct icon; the launch screen shows no text. Verified on the iPhone, light, dark and tinted.
+- [x] Camera and photo library prompts show the wording above. Verified on the iPhone; no microphone prompt.
+- [x] No export compliance question appears for the build in App Store Connect. Verified for builds 3 and 4.
+- [x] I can create an account or sign in, keep moments with photos, and see them sync with a simulator. Verified on 1.0.1 against the production API and user pool.
+- [x] The Letters tab shows letters for an account that has them. Verified on 1.0.1.
+- [x] Cold start offline: with flight mode on, the app opens and shows my moments and cached letters; turning it off, they sync (carried over from spec 007). Verified on 1.0.1.
+- [x] No development logs and no development menu in the release build. Verified on 1.0.1: no `[auth]` or `[sync]` logs; the production profile has no development client, so no menu.
 
 Docs
 
-- [ ] README: how to release (tag, workflow, TestFlight), and the one-time setup in docs/operations.md.
-- [ ] The roadmap ticks "TestFlight via CI".
+- [x] README: how to release (tag, workflow, TestFlight), and the one-time setup in docs/operations.md. Verified: README "Releasing" and docs/operations.md "Releasing the iOS app".
+- [x] The roadmap ticks "TestFlight via CI".
 
 ## One-time setup (developer)
 

@@ -186,4 +186,6 @@ An annotated tag (`git tag -a`) can hold release notes in git, but isn't require
 - [x] M3: monthly letter (LLM API, scheduled)
 - [ ] M4: enrichment agent (SQS, tools)
 - [ ] M5: TestFlight via CI, demo video
+  - [x] TestFlight via CI (spec 008)
+  - [ ] Demo video
 - [ ] M6: ask your moments (RAG, optional)
