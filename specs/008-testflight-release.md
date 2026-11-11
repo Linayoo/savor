@@ -57,6 +57,7 @@ Savor only runs as a development build, which loads its JavaScript from the deve
 - `[auth]` and `[sync]` development logs are absent from the release build.
 - The release build talks to the production API and user pool.
 - The release build opens with no network, shows cached moments and letters, and syncs when the network returns.
+- A first launch starts signed out, even when the Keychain holds tokens from an earlier install: the iOS Keychain outlives the app. A marker in app storage tells a first launch apart; the first TestFlight install of 1.0.0 started signed in, and 1.0.1 fixes it. Installs from before 1.0.1 are signed out once when they update.
 
 ## Acceptance criteria
 
