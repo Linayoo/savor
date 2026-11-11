@@ -6,6 +6,7 @@ import {
 } from "@testing-library/react-native";
 import { eq } from "drizzle-orm";
 import { router } from "expo-router";
+import * as ImagePicker from "expo-image-picker";
 import { ActionSheetIOS } from "react-native";
 import Index from "@/app/(tabs)/index";
 import { listMoments } from "@/db/moments-store";
@@ -15,6 +16,16 @@ import { MomentsProvider } from "@/moments";
 import { createTestDb, photosNamed, seedMoments } from "@/test-utils/db";
 
 jest.mock("expo-router", () => ({ router: { push: jest.fn() } }));
+jest.mock("expo-image-picker", () => ({
+  launchImageLibraryAsync: jest.fn(),
+  launchCameraAsync: jest.fn(),
+  requestCameraPermissionsAsync: async () => ({ granted: true }),
+}));
+// Keeps the picked photo's file name instead of copying the file
+jest.mock("@/photos", () => ({
+  ...jest.requireActual("@/photos"),
+  savePhoto: (uri: string) => uri.split("/").pop(),
+}));
 
 // Thu 1 Oct 2026, 09:30 UTC (tests run in UTC), stored before kinds existed
 const oldMoment = {
@@ -61,6 +72,84 @@ describe("Moments screen: keeping a moment", () => {
     expect(await screen.findByText("Ramen with Ana")).toBeOnTheScreen();
     expect(input()).toHaveDisplayValue("");
     expect(chip("Meal")).not.toBeSelected();
+  });
+});
+
+describe("Moments screen: adding photos", () => {
+  // The camera button opens the iOS action sheet; the test picks the option
+  let option = 0;
+  beforeEach(() => {
+    jest
+      .spyOn(ActionSheetIOS, "showActionSheetWithOptions")
+      .mockImplementation((_options, callback) => callback(option));
+  });
+
+  const asset = (id: string, assetId: string | null = id) => ({
+    uri: `file:///tmp/picker/${id}.jpg`,
+    assetId,
+    width: 1,
+    height: 1,
+  });
+
+  async function chooseFromLibrary(
+    user: ReturnType<typeof userEvent.setup>,
+    assets: ReturnType<typeof asset>[],
+  ) {
+    option = 2;
+    jest
+      .mocked(ImagePicker.launchImageLibraryAsync)
+      .mockResolvedValueOnce({ canceled: false, assets });
+    await user.press(screen.getByLabelText("Add photos"));
+  }
+
+  async function takePhoto(
+    user: ReturnType<typeof userEvent.setup>,
+    id: string,
+  ) {
+    option = 1;
+    jest
+      .mocked(ImagePicker.launchCameraAsync)
+      .mockResolvedValueOnce({ canceled: false, assets: [asset(id, null)] });
+    await user.press(screen.getByLabelText("Add photos"));
+  }
+
+  const draftPhotos = () => screen.queryAllByLabelText("Remove photo");
+
+  it("ignores library photos already in the draft", async () => {
+    const user = await renderScreen();
+
+    await chooseFromLibrary(user, [asset("a"), asset("b")]);
+    await chooseFromLibrary(user, [asset("b"), asset("c")]);
+
+    expect(draftPhotos()).toHaveLength(3);
+    await user.press(screen.getByText("Keep"));
+    expect(listMoments(db)[0].photos!.map((p) => p.fileName)).toEqual([
+      "a.jpg",
+      "b.jpg",
+      "c.jpg",
+    ]);
+  });
+
+  it("adds a photo again after it's removed from the draft", async () => {
+    const user = await renderScreen();
+
+    await chooseFromLibrary(user, [asset("a"), asset("b")]);
+    await user.press(draftPhotos()[1]);
+    expect(draftPhotos()).toHaveLength(1);
+    await chooseFromLibrary(user, [asset("b")]);
+
+    expect(draftPhotos()).toHaveLength(2);
+  });
+
+  it("adds library photos without an asset id, and every camera photo", async () => {
+    const user = await renderScreen();
+
+    await chooseFromLibrary(user, [asset("a", null)]);
+    await chooseFromLibrary(user, [asset("b", null)]);
+    await takePhoto(user, "c");
+    await takePhoto(user, "d");
+
+    expect(draftPhotos()).toHaveLength(4);
   });
 });
 

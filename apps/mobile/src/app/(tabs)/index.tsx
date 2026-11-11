@@ -23,10 +23,14 @@ import { kindIcon, momentLine, type MomentKind } from "@/kinds";
 import { photoUri, useMoments, type Moment } from "../../moments";
 import { useSync } from "../../sync-provider";
 
+// A photo waiting in the card. Library photos carry the picker's asset id,
+// so picking one again doesn't add it twice; camera photos have none.
+type DraftPhoto = { uri: string; assetId: string | null };
+
 export default function Index() {
   const { moments, addMoment, updateMoment, deleteMoment } = useMoments();
   const [draft, setDraft] = useState("");
-  const [draftPhotos, setDraftPhotos] = useState<string[]>([]);
+  const [draftPhotos, setDraftPhotos] = useState<DraftPhoto[]>([]);
   const [draftKind, setDraftKind] = useState<MomentKind | undefined>();
   const [editingId, setEditingId] = useState<string | null>(null);
   const inputRef = useRef<TextInputInstance>(null);
@@ -39,8 +43,14 @@ export default function Index() {
     setRefreshing(false);
   };
 
-  const addUris = (uris: string[]) =>
-    setDraftPhotos((prev) => [...prev, ...uris]);
+  const addPhotos = (assets: ImagePicker.ImagePickerAsset[]) =>
+    setDraftPhotos((prev) => {
+      const inDraft = new Set(prev.map((p) => p.assetId).filter(Boolean));
+      const added = assets
+        .filter((a) => !a.assetId || !inDraft.has(a.assetId))
+        .map((a) => ({ uri: a.uri, assetId: a.assetId ?? null }));
+      return [...prev, ...added];
+    });
 
   const takePhoto = async () => {
     const { granted } = await ImagePicker.requestCameraPermissionsAsync();
@@ -49,7 +59,7 @@ export default function Index() {
       mediaTypes: ["images"],
       quality: 0.8,
     });
-    if (!result.canceled) addUris(result.assets.map((a) => a.uri));
+    if (!result.canceled) addPhotos(result.assets);
   };
 
   const choosePhotos = async () => {
@@ -58,7 +68,7 @@ export default function Index() {
       allowsMultipleSelection: true,
       quality: 0.8,
     });
-    if (!result.canceled) addUris(result.assets.map((a) => a.uri));
+    if (!result.canceled) addPhotos(result.assets);
   };
 
   const openPhotoOptions = () => {
@@ -109,7 +119,11 @@ export default function Index() {
 
     if (!text && draftPhotos.length === 0) return;
     try {
-      addMoment(text, draftPhotos, draftKind);
+      addMoment(
+        text,
+        draftPhotos.map((p) => p.uri),
+        draftKind,
+      );
       setDraft("");
       setDraftPhotos([]);
       setDraftKind(undefined);
@@ -183,11 +197,12 @@ export default function Index() {
 
         {draftPhotos.length > 0 && (
           <ScrollView horizontal style={styles.thumbRow}>
-            {draftPhotos.map((uri) => (
+            {draftPhotos.map(({ uri }) => (
               <Pressable
                 key={uri}
+                accessibilityLabel="Remove photo"
                 onPress={() =>
-                  setDraftPhotos((p) => p.filter((u) => u !== uri))
+                  setDraftPhotos((p) => p.filter((d) => d.uri !== uri))
                 }
               >
                 <Image source={{ uri }} style={styles.thumb} />
