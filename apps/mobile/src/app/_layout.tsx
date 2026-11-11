@@ -11,6 +11,7 @@ import {
 import { Stack } from "expo-router";
 import { AccountProvider } from "../account";
 import * as auth from "../auth/auth";
+import { FreshInstallGate } from "../auth/fresh-install-gate";
 import { appConfig } from "../config";
 import { db } from "../db/client";
 import { DatabaseGate } from "../db/database-gate";
@@ -42,37 +43,39 @@ export default function RootLayout() {
 
   return (
     <DatabaseGate>
-      <AccountProvider db={db} auth={auth}>
-        <SyncProvider
-          db={db}
-          createApi={createApi}
-          deleteFiles={deletePhotoFiles}
-          transfer={photoTransfer}
-        >
-          <LettersProvider db={db} createApi={createLettersApi}>
-            <MomentsProvider db={db}>
-              <Stack screenOptions={{ headerShown: false }}>
-                <Stack.Screen name="(tabs)" />
-                <Stack.Screen
-                  name="moment/[id]"
-                  options={{
-                    presentation: "fullScreenModal",
-                    animation: "fade",
-                  }}
-                />
-                <Stack.Screen
-                  name="letter/[id]"
-                  options={{ presentation: "modal" }}
-                />
-                <Stack.Screen
-                  name="account"
-                  options={{ presentation: "modal" }}
-                />
-              </Stack>
-            </MomentsProvider>
-          </LettersProvider>
-        </SyncProvider>
-      </AccountProvider>
+      <FreshInstallGate>
+        <AccountProvider db={db} auth={auth}>
+          <SyncProvider
+            db={db}
+            createApi={createApi}
+            deleteFiles={deletePhotoFiles}
+            transfer={photoTransfer}
+          >
+            <LettersProvider db={db} createApi={createLettersApi}>
+              <MomentsProvider db={db}>
+                <Stack screenOptions={{ headerShown: false }}>
+                  <Stack.Screen name="(tabs)" />
+                  <Stack.Screen
+                    name="moment/[id]"
+                    options={{
+                      presentation: "fullScreenModal",
+                      animation: "fade",
+                    }}
+                  />
+                  <Stack.Screen
+                    name="letter/[id]"
+                    options={{ presentation: "modal" }}
+                  />
+                  <Stack.Screen
+                    name="account"
+                    options={{ presentation: "modal" }}
+                  />
+                </Stack>
+              </MomentsProvider>
+            </LettersProvider>
+          </SyncProvider>
+        </AccountProvider>
+      </FreshInstallGate>
     </DatabaseGate>
   );
 }
