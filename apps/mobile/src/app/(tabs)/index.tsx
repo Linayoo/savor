@@ -8,6 +8,7 @@ import {
   Alert,
   FlatList,
   Image,
+  Keyboard,
   Platform,
   Pressable,
   RefreshControl,
@@ -34,6 +35,7 @@ export default function Index() {
   const [draftKind, setDraftKind] = useState<MomentKind | undefined>();
   const [editingId, setEditingId] = useState<string | null>(null);
   const inputRef = useRef<TextInputInstance>(null);
+  const timelineRef = useRef<FlatList<Moment>>(null);
   const sync = useSync();
   const [refreshing, setRefreshing] = useState(false);
 
@@ -114,6 +116,7 @@ export default function Index() {
       if (!text && !moment?.photos?.length) return; // don't leave an empty moment
       updateMoment(editingId, text, draftKind);
       cancelEdit();
+      Keyboard.dismiss();
       return;
     }
 
@@ -127,6 +130,9 @@ export default function Index() {
       setDraft("");
       setDraftPhotos([]);
       setDraftKind(undefined);
+      // The new moment is first; show it without the keyboard over it
+      Keyboard.dismiss();
+      timelineRef.current?.scrollToOffset({ offset: 0, animated: true });
     } catch (e) {
       Alert.alert("Couldn't save the photos", String(e));
     }
@@ -234,6 +240,7 @@ export default function Index() {
       </View>
 
       <FlatList
+        ref={timelineRef}
         data={moments}
         keyExtractor={(m) => m.id}
         testID="timeline"

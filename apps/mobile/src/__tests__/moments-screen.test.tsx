@@ -7,7 +7,7 @@ import {
 import { eq } from "drizzle-orm";
 import { router } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
-import { ActionSheetIOS } from "react-native";
+import { ActionSheetIOS, FlatList, Keyboard } from "react-native";
 import Index from "@/app/(tabs)/index";
 import { listMoments } from "@/db/moments-store";
 import { momentPhotos } from "@/db/schema";
@@ -56,7 +56,13 @@ async function renderAgain() {
   );
 }
 
-beforeEach(() => jest.mocked(router.push).mockClear());
+let dismissKeyboard: jest.SpyInstance;
+let scrollTimeline: jest.SpyInstance;
+beforeEach(() => {
+  jest.mocked(router.push).mockClear();
+  dismissKeyboard = jest.spyOn(Keyboard, "dismiss").mockClear();
+  scrollTimeline = jest.spyOn(FlatList.prototype, "scrollToOffset").mockClear();
+});
 
 const input = () => screen.getByPlaceholderText("What moved you just now?");
 const chip = (name: string) => screen.getByRole("button", { name });
@@ -72,6 +78,29 @@ describe("Moments screen: keeping a moment", () => {
     expect(await screen.findByText("Ramen with Ana")).toBeOnTheScreen();
     expect(input()).toHaveDisplayValue("");
     expect(chip("Meal")).not.toBeSelected();
+  });
+
+  it("closes the keyboard and scrolls to the new moment after Keep", async () => {
+    const user = await renderScreen([oldMoment]);
+
+    await user.type(input(), "Ramen with Ana");
+    await user.press(screen.getByText("Keep"));
+
+    // Newest first, so the new moment is at the top of the timeline
+    expect(await screen.findByText("Ramen with Ana")).toBeOnTheScreen();
+    expect(dismissKeyboard).toHaveBeenCalled();
+    expect(scrollTimeline).toHaveBeenCalledWith(
+      expect.objectContaining({ offset: 0 }),
+    );
+  });
+
+  it("leaves the keyboard and the timeline alone when there's nothing to keep", async () => {
+    const user = await renderScreen([oldMoment]);
+
+    await user.press(screen.getByText("Keep"));
+
+    expect(dismissKeyboard).not.toHaveBeenCalled();
+    expect(scrollTimeline).not.toHaveBeenCalled();
   });
 });
 
@@ -222,6 +251,16 @@ describe("Moments screen: editing a moment", () => {
 
     expect(input()).toHaveDisplayValue("Rain on the window");
     expect(chip("Nature")).toBeSelected();
+  });
+
+  it("closes the keyboard after Save, leaving the timeline where it is", async () => {
+    await renderScreen([oldMoment]);
+    const user = await startEditing("Rain on the window");
+
+    await user.press(screen.getByText("Save"));
+
+    expect(dismissKeyboard).toHaveBeenCalled();
+    expect(scrollTimeline).not.toHaveBeenCalled();
   });
 
   it("saves a new kind, keeping the text and photos", async () => {
