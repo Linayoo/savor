@@ -1,6 +1,7 @@
 import { initTRPC, TRPCError } from "@trpc/server";
 import type { Db } from "./db/client";
 import type { PhotoStorage } from "./photos/storage";
+import { QuotaExceeded } from "./quotas";
 
 export type Context = {
   db: Db;
@@ -10,7 +11,13 @@ export type Context = {
   photos: PhotoStorage;
 };
 
-const t = initTRPC.context<Context>().create();
+// A quota refusal names its quota, so the app can say what happens next
+const t = initTRPC.context<Context>().create({
+  errorFormatter: ({ shape, error }) =>
+    error.cause instanceof QuotaExceeded
+      ? { ...shape, data: { ...shape.data, quota: error.cause.quota } }
+      : shape,
+});
 
 export const router = t.router;
 export const createCallerFactory = t.createCallerFactory;
