@@ -1,6 +1,6 @@
 # 009: Abuse limits
 
-Status: approved
+Status: in progress
 
 ## Problem
 
@@ -121,27 +121,27 @@ Infrastructure (Terraform):
 
 Quotas
 
-- [ ] Given a push that leaves a moment with 11 live photos, then it fails with `TOO_MANY_REQUESTS` and `photosPerMoment`, and nothing from it is stored.
-- [ ] Given 500 new moments pushed today, when a push adds one more new moment, then it fails with `momentsPerDay` and nothing from it is stored; a push of edits and deletes still succeeds; the next UTC day the new moment is accepted.
-- [ ] Given a user over a daily quota or the storage quota, when they push a delete, then it succeeds.
-- [ ] Given 300 `createUpload` calls today, when there's another, then it fails with `uploadsPerDay`.
-- [ ] Given confirmed live photos totalling 5 GB, when `createUpload` is called, then it fails with `storage`; after deleting a moment with photos, `createUpload` succeeds again.
-- [ ] Given another user at their quota, then my pushes and uploads are unaffected.
+- [x] Given a push that leaves a moment with 11 live photos, then it fails with `TOO_MANY_REQUESTS` and `photosPerMoment`, and nothing from it is stored. Verified: `sync/quotas.test.ts` (11 photos across two pushes, and in one), and `trpc.test.ts` for the 429 with `quota` over HTTP.
+- [x] Given 500 new moments pushed today, when a push adds one more new moment, then it fails with `momentsPerDay` and nothing from it is stored; a push of edits and deletes still succeeds; the next UTC day the new moment is accepted. Verified: `sync/quotas.test.ts`, including a moment pushed twice counting once and one that arrives deleted not counting.
+- [x] Given a user over a daily quota or the storage quota, when they push a delete, then it succeeds. Verified: `sync/quotas.test.ts` (deletes over the daily quota) and `photos/quotas.test.ts` (deleting a moment at 5 GB); pushes never check storage.
+- [x] Given 300 `createUpload` calls today, when there's another, then it fails with `uploadsPerDay`. Verified: `photos/quotas.test.ts`, which also takes it the next UTC day.
+- [x] Given confirmed live photos totalling 5 GB, when `createUpload` is called, then it fails with `storage`; after deleting a moment with photos, `createUpload` succeeds again. Verified: `photos/quotas.test.ts`; unconfirmed uploads don't count. Sizes of photos confirmed before were filled in by `backfill-photo-sizes` on 2026-11-12: 14 photos; one confirmed photo had no file in the bucket, `510d377b-e60f-4167-b720-42152e441836`.
+- [x] Given another user at their quota, then my pushes and uploads are unaffected. Verified: `sync/quotas.test.ts` and `photos/quotas.test.ts`.
 
 App
 
-- [ ] The picker offers only the room left in the moment, and the camera button is disabled at 10, with the line "A moment holds up to 10 photos."
-- [ ] Given a `momentsPerDay` refusal, then the moments stay on the phone, pending, the sync line says "Some changes will sync tomorrow", pending deletes still sync, edits wait, and changes from other devices are still pulled.
-- [ ] Given a moment kept with 12 photos, then the moment and its first 10 photos sync and upload, and the other 2 stay on this phone.
-- [ ] Given a `storage` refusal, then the moment syncs without that photo, the photo stays on this phone, and the Account screen shows the storage line; no counts appear anywhere.
+- [x] The picker offers only the room left in the moment, and the camera button is disabled at 10, with the line "A moment holds up to 10 photos." Verified: `moments-screen.test.tsx`, and on the simulator on 2026-11-12.
+- [x] Given a `momentsPerDay` refusal, then the moments stay on the phone, pending, the sync line says "Some changes will sync tomorrow", pending deletes still sync, edits wait, and changes from other devices are still pulled. Verified: `sync-quotas.test.ts`, against the fake server; the waiting status is retried after 10 minutes.
+- [x] Given a moment kept with 12 photos, then the moment and its first 10 photos sync and upload, and the other 2 stay on this phone. Verified: `sync-quotas.test.ts`.
+- [x] Given a `storage` refusal, then the moment syncs without that photo, the photo stays on this phone, and the Account screen shows the storage line; no counts appear anywhere. Verified: `sync-quotas.test.ts`, and `sync-provider.test.tsx` for the Account line, which goes once the photo uploads.
 
 Infrastructure
 
-- [ ] The Lambda concurrency increase to 1,000 is requested through Terraform.
+- [x] The Lambda concurrency increase to 1,000 is requested through Terraform. Verified: `infra/bootstrap/lambda-quota.tf`, applied on 2026-11-12.
 - [ ] Once it's granted, the API and letters Lambdas have reserved concurrency 10 and 2 (`terraform plan` shows it; `aws lambda get-function-concurrency` confirms it).
-- [ ] A new upload is tagged `upload=pending`, `confirmUpload` removes the tag, and an object left unconfirmed is gone a few days later (`photo-checks`).
-- [ ] `Default-Services-Monitor` and its subscription are in Terraform state, with no second monitor, and the subscription sends a daily email at $1 or more.
-- [ ] The README's architecture notes and docs/operations.md describe the limits and the backfill script.
+- [ ] A new upload is tagged `upload=pending`, `confirmUpload` removes the tag, and an object left unconfirmed is gone a few days later (`photo-checks`). The tag, its removal and the rule were checked by `photo-checks` against the deployed API on 2026-11-12; an unconfirmed object expiring is still to be seen.
+- [x] `Default-Services-Monitor` and its subscription are in Terraform state, with no second monitor, and the subscription sends a daily email at $1 or more. Verified: imported and applied with `infra/bootstrap/anomaly.tf` on 2026-11-12.
+- [x] The README's architecture notes and docs/operations.md describe the limits and the backfill script. Verified: README architecture notes and highlights; docs/operations.md, "Abuse limits".
 
 ## Out of scope
 
