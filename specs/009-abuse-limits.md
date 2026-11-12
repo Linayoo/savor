@@ -1,6 +1,6 @@
 # 009: Abuse limits
 
-Status: draft
+Status: approved
 
 ## Problem
 
@@ -41,19 +41,24 @@ The words are plain and never count, rank or scold (CLAUDE.md product rules). Th
 
 ### Caps on the Lambdas
 
+- The account's Lambda concurrency limit is 10 today (`aws lambda get-account-settings`, 2026-11-12), the reduced limit of a new account. Reserving concurrency needs 100 left unreserved, so it can't be set yet. Until it can, the account limit caps both Lambdas together at 10.
+- `infra/bootstrap` requests an increase to the standard 1,000 with `aws_servicequotas_service_quota` (Lambda, `L-B99A9384`). AWS may also raise it on its own as the account is used.
+- Once the limit is 1,000, the reserved concurrency below is set in `infra/app`, in its own change.
 - The API Lambda gets reserved concurrency 10. That's the stage limit of 10 requests per second with requests well under a second, so a real burst never meets it. A runaway can no longer use the whole account's concurrency or open connections to Neon without limit.
 - The letters Lambda gets reserved concurrency 2: one scheduled run and one manual invoke (docs/operations.md).
 - Requests over the cap are throttled by Lambda. API Gateway returns an error, which the phone treats as `unavailable` and retries. A throttled scheduled letters run is retried by Lambda for up to 6 hours.
 
 ### Cost Anomaly Detection
 
-- One monitor on AWS services, with a daily email summary when an anomaly's impact is at least $1. The budget is $5 a month, so AWS's default thresholds, 40% and $100, would never fire.
+- AWS already made the monitor: `Default-Services-Monitor` (`DIMENSIONAL`, `SERVICE`, created 2026-07-06). Terraform imports it and its subscription with `import` blocks instead of creating a second one.
+- The subscription changes to a daily email summary to the budget address when an anomaly's impact is at least $1. The budget is $5 a month, so AWS's default thresholds, 40% and $100, would never fire.
 - It lives in `infra/bootstrap`, next to the budget, because it covers the whole account.
 - Cost Anomaly Detection is free. It runs about three times a day, so it can be up to a day late. The budget alarm stays.
 
 ### Unconfirmed uploads
 
 - An upload whose photo is never confirmed (`photos.confirmUpload`) leaves an object that nothing points to. Today it stays forever.
+- Before anything else in this part, a check against the real bucket confirms that a presigned POST can set the tag, and which permission it needs: a variant of `photo-checks`, run by the developer. If it can't, the fallback is to upload under an `uploads/` prefix, which `confirmUpload` copies to the final key, with the lifecycle rule on the prefix instead. That costs one copy per photo.
 - The upload form tags the object `upload=pending`. `confirmUpload` removes the tag once it has checked the size. A lifecycle rule expires objects still tagged `upload=pending` after 2 days. S3 rounds that to the next midnight UTC and expires objects asynchronously, so it can take a little longer.
 - The existing rule that aborts incomplete multipart uploads stays as its own rule, since S3 doesn't allow that action in a rule filtered by tag.
 - Photos uploaded before this change have no tag, and the rule never touches them.
@@ -95,9 +100,10 @@ Phone: none. The photos-per-moment limit is a constant in `packages/shared`, use
 
 Infrastructure (Terraform):
 
-- `infra/app/function.tf` and `letters.tf`: `reserved_concurrent_executions = 10` and `2`.
+- `infra/bootstrap`: `aws_servicequotas_service_quota` for Lambda concurrent executions, 1,000.
+- `infra/app/function.tf` and `letters.tf`: `reserved_concurrent_executions = 10` and `2`, once the increase is granted.
 - `infra/app/photos.tf`: a second lifecycle rule, filtered on the tag `upload=pending`, expiring after 2 days.
-- `infra/bootstrap`: `aws_ce_anomaly_monitor` (`DIMENSIONAL`, `SERVICE`) and `aws_ce_anomaly_subscription` (`DAILY`, email to the budget address, `ANOMALY_TOTAL_IMPACT_ABSOLUTE` at least 1).
+- `infra/bootstrap`: `Default-Services-Monitor` imported as `aws_ce_anomaly_monitor`, and its subscription as `aws_ce_anomaly_subscription` (`DAILY`, email to the budget address, `ANOMALY_TOTAL_IMPACT_ABSOLUTE` at least 1).
 
 ## UI notes
 
@@ -128,9 +134,10 @@ App
 
 Infrastructure
 
-- [ ] The API and letters Lambdas have reserved concurrency 10 and 2 (`terraform plan` shows it; `aws lambda get-function-concurrency` confirms it).
+- [ ] The Lambda concurrency increase to 1,000 is requested through Terraform.
+- [ ] Once it's granted, the API and letters Lambdas have reserved concurrency 10 and 2 (`terraform plan` shows it; `aws lambda get-function-concurrency` confirms it).
 - [ ] A new upload is tagged `upload=pending`, `confirmUpload` removes the tag, and an object left unconfirmed is gone a few days later (`photo-checks`).
-- [ ] Cost Anomaly Detection has an AWS services monitor and a daily subscription at $1 or more, both in Terraform.
+- [ ] `Default-Services-Monitor` and its subscription are in Terraform state, with no second monitor, and the subscription sends a daily email at $1 or more.
 - [ ] The README's architecture notes and docs/operations.md describe the limits and the backfill script.
 
 ## Out of scope
@@ -143,7 +150,9 @@ Infrastructure
 
 ## Open questions
 
-- **New account concurrency:** a new AWS account can start with a Lambda concurrency limit below 100, and reserving any concurrency then fails, because 100 must stay unreserved. Check with `aws service-quotas get-service-quota --service-code lambda --quota-code L-B99A9384 --region eu-central-1`, and request an increase first if it's under 112.
-- **The default anomaly monitor:** since 2023, AWS creates an AWS services monitor with a daily email for new Cost Explorer users. If this account has one (`aws ce get-anomaly-monitors`), import it into Terraform and change its subscription, instead of making a second one.
-- **Tagging through the upload form:** the docs confirm a `tagging` field on POST uploads, but not the exact XML or the permission it needs. Verify it against the real bucket with `photo-checks` before relying on it. If it doesn't work, the fallback is uploading under an `uploads/` prefix, which `confirmUpload` copies to the final key; that costs a copy per photo.
-- **The numbers:** 10, 500, 300 and 5 GB. Change them before approving if they feel wrong for how you use Savor.
+None. Resolved on 2026-11-12:
+
+- **Account concurrency:** the limit is 10, so reserved concurrency waits for the increase (Caps on the Lambdas).
+- **The default anomaly monitor:** it exists and is imported (Cost Anomaly Detection).
+- **Tagging through the upload form:** checked against the real bucket before the lifecycle rule, with the prefix fallback (Unconfirmed uploads).
+- **The numbers:** 10, 500, 300 and 5 GB, approved as proposed.
