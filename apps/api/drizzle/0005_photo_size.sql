@@ -1,0 +1,1 @@
+ALTER TABLE "moment_photos" ADD COLUMN "size_bytes" bigint;

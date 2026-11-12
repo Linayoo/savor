@@ -4,9 +4,10 @@ import type {
   DownloadUrlsOutput,
 } from "@savor/shared";
 import { TRPCError } from "@trpc/server";
-import { and, eq, inArray, isNotNull, isNull } from "drizzle-orm";
+import { and, eq, inArray, isNotNull, isNull, sum } from "drizzle-orm";
 import type { Db } from "../db/client";
 import { momentPhotos } from "../db/schema";
+import { addUsage, LIMITS, quotaExceeded } from "../quotas";
 import { lockVersion, saveVersion } from "../sync/push";
 import { MAX_PHOTO_BYTES, photoKey, type PhotoStorage } from "./storage";
 
@@ -33,14 +34,44 @@ async function findOwnPhoto(db: Db, userId: string, photoId: string) {
   return photo;
 }
 
+// Within the user's quotas (spec 009): uploads per day, and the storage of
+// confirmed photos. Under the user's sync lock, so calls take turns.
 export async function createUpload(
   db: Db,
   storage: PhotoStorage,
   userId: string,
   photoId: string,
+  now = Date.now,
 ): Promise<CreateUploadOutput> {
-  await findOwnPhoto(db, userId, photoId);
+  await db.transaction(async (tx) => {
+    await lockVersion(tx, userId);
+    await findOwnPhoto(tx, userId, photoId);
+    if ((await storedBytes(tx, userId)) >= LIMITS.storageBytes) {
+      throw quotaExceeded("storage");
+    }
+    if (
+      (await addUsage(tx, userId, now(), "uploads", 1)) > LIMITS.uploadsPerDay
+    ) {
+      throw quotaExceeded("uploadsPerDay");
+    }
+  });
   return storage.createUpload(photoKey(userId, photoId));
+}
+
+// Confirmed photos that aren't deleted. A deleted photo's file is removed
+// from storage (delete-files.ts), so it stops counting.
+async function storedBytes(tx: Db, userId: string): Promise<number> {
+  const [row] = await tx
+    .select({ bytes: sum(momentPhotos.sizeBytes).mapWith(Number) })
+    .from(momentPhotos)
+    .where(
+      and(
+        eq(momentPhotos.userId, userId),
+        isNull(momentPhotos.deletedAt),
+        isNotNull(momentPhotos.uploadedAt),
+      ),
+    );
+  return row?.bytes ?? 0;
 }
 
 // Sets uploaded_at and a new version once the file is in storage. Repeating
@@ -74,7 +105,7 @@ export async function confirmUpload(
     const uploadedAt = now();
     await tx
       .update(momentPhotos)
-      .set({ uploadedAt, version })
+      .set({ uploadedAt, sizeBytes: size, version })
       .where(eq(momentPhotos.id, photoId));
     await saveVersion(tx, userId, version);
     return { uploadedAt };

@@ -47,6 +47,10 @@ export const momentPhotos = pgTable(
     // Set by photos.confirmUpload once the file is in S3 (spec 006); pushes
     // never change it
     uploadedAt: ms("uploaded_at"),
+    // The file's size, also set by confirmUpload; counts toward the user's
+    // storage quota (spec 009). Null for photos confirmed before it, until
+    // the backfill script fills it in.
+    sizeBytes: ms("size_bytes"),
   },
   (t) => [index("moment_photos_user_version_idx").on(t.userId, t.version)],
 );
