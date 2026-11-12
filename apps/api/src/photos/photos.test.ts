@@ -175,6 +175,32 @@ describe("photos.confirmUpload", () => {
     expect(pulled.moments).toEqual([]);
   });
 
+  it("clears the pending tag the upload form set, so the photo isn't expired", async () => {
+    const { userId, photo } = await userWithPhoto();
+    const form = await as(userId).photos.createUpload({ photoId: photo.id });
+    await storage.upload(form, jpeg());
+    const key = photoKey(userId, photo.id);
+    expect(storage.tags.get(key)).toEqual({ upload: "pending" });
+
+    await as(userId).photos.confirmUpload({ photoId: photo.id });
+
+    expect(storage.tags.get(key)).toEqual({});
+  });
+
+  it("stays unconfirmed when the tag can't be cleared, so the phone tries again", async () => {
+    const { userId, photo } = await userWithPhoto();
+    const form = await as(userId).photos.createUpload({ photoId: photo.id });
+    await storage.upload(form, jpeg());
+    storage.failTagging = true;
+
+    await expect(
+      as(userId).photos.confirmUpload({ photoId: photo.id }),
+    ).rejects.toThrow();
+
+    const { photos } = await as(userId).sync.pull({ sinceVersion: 0 });
+    expect(photos[0].uploadedAt).toBeNull();
+  });
+
   it("is harmless to repeat: same time, no new version", async () => {
     const { userId, photo } = await uploaded();
     const { version } = await as(userId).sync.pull({ sinceVersion: 0 });

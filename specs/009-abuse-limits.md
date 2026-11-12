@@ -59,7 +59,7 @@ The words are plain and never count, rank or scold (CLAUDE.md product rules). Th
 ### Unconfirmed uploads
 
 - An upload whose photo is never confirmed (`photos.confirmUpload`) leaves an object that nothing points to. Today it stays forever.
-- Before anything else in this part, a check against the real bucket confirms that a presigned POST can set the tag, and which permission it needs: a variant of `photo-checks`, run by the developer. If it can't, the fallback is to upload under an `uploads/` prefix, which `confirmUpload` copies to the final key, with the lifecycle rule on the prefix instead. That costs one copy per photo.
+- `tagging-check` confirmed on 2026-11-12, against the real bucket, that a presigned POST can set the tag and that S3 refuses the form with a different one. The `uploads/` prefix fallback isn't needed. Setting the tag through the form needs `s3:PutObjectTagging` on the signing role, and clearing it `s3:DeleteObjectTagging`.
 - The upload form tags the object `upload=pending`. `confirmUpload` removes the tag once it has checked the size. A lifecycle rule expires objects still tagged `upload=pending` after 2 days. S3 rounds that to the next midnight UTC and expires objects asynchronously, so it can take a little longer.
 - The existing rule that aborts incomplete multipart uploads stays as its own rule, since S3 doesn't allow that action in a rule filtered by tag.
 - Photos uploaded before this change have no tag, and the rule never touches them.

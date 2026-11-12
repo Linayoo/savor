@@ -35,6 +35,26 @@ resource "aws_s3_bucket_lifecycle_configuration" "photos" {
       days_after_initiation = 1
     }
   }
+
+  # An upload nobody confirmed keeps the tag its form set (spec 009). S3
+  # rounds to the next midnight UTC and expires asynchronously, so it can take
+  # a little longer. Separate from the rule above: S3 doesn't allow aborting
+  # multipart uploads in a rule filtered by tag.
+  rule {
+    id     = "expire-unconfirmed-uploads"
+    status = "Enabled"
+
+    filter {
+      tag {
+        key   = "upload"
+        value = "pending"
+      }
+    }
+
+    expiration {
+      days = 2
+    }
+  }
 }
 
 # Access is granted through IAM, to the API's role only (function.tf); the

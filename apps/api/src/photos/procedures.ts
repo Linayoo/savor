@@ -87,8 +87,12 @@ export async function confirmUpload(
   if (found.uploadedAt !== null) return { uploadedAt: found.uploadedAt };
 
   // Outside the transaction: no network call while rows are locked
-  const size = await storage.size(photoKey(userId, photoId));
+  const key = photoKey(userId, photoId);
+  const size = await storage.size(key);
   if (size === null || size > MAX_PHOTO_BYTES) throw notFound();
+  // Before the photo counts as uploaded: if this fails, it stays unconfirmed
+  // and the phone tries again, rather than a confirmed photo expiring
+  await storage.clearPendingTag(key);
 
   return db.transaction(async (tx) => {
     const version = (await lockVersion(tx, userId)) + 1;

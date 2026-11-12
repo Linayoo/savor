@@ -79,8 +79,16 @@ data "aws_iam_policy_document" "api" {
 
   # Presigned URLs are signed with this role, so they can do no more than this
   statement {
-    sid       = "PhotoObjects"
-    actions   = ["s3:PutObject", "s3:GetObject", "s3:DeleteObject"]
+    sid = "PhotoObjects"
+    actions = [
+      "s3:PutObject",
+      "s3:GetObject",
+      "s3:DeleteObject",
+      # The upload form tags its object upload=pending; confirmUpload clears
+      # the tag (spec 009)
+      "s3:PutObjectTagging",
+      "s3:DeleteObjectTagging",
+    ]
     resources = ["${aws_s3_bucket.photos.arn}/users/*"]
   }
 

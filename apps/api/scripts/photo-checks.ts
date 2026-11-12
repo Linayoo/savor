@@ -3,6 +3,7 @@ import {
   GetBucketLifecycleConfigurationCommand,
   GetBucketPolicyCommand,
   GetBucketVersioningCommand,
+  GetObjectTaggingCommand,
   GetPublicAccessBlockCommand,
   HeadObjectCommand,
   S3Client,
@@ -93,11 +94,18 @@ assert.notEqual(versioning.Status, "Enabled");
 const lifecycle = await s3.send(
   new GetBucketLifecycleConfigurationCommand({ Bucket: bucket }),
 );
+const rule = (id: string) => lifecycle.Rules?.find((r) => r.ID === id);
 assert.equal(
-  lifecycle.Rules?.[0]?.AbortIncompleteMultipartUpload?.DaysAfterInitiation,
+  rule("abort-incomplete-uploads")?.AbortIncompleteMultipartUpload
+    ?.DaysAfterInitiation,
   1,
 );
 pass("SSE-S3, no versioning, incomplete uploads aborted after 1 day");
+const expiry = rule("expire-unconfirmed-uploads");
+assert.equal(expiry?.Status, "Enabled");
+assert.deepEqual(expiry?.Filter?.Tag, { Key: "upload", Value: "pending" });
+assert.equal(expiry?.Expiration?.Days, 2);
+pass("objects still tagged upload=pending expire after 2 days");
 
 const a = await signIn("SMOKE_USER_A");
 const b = await signIn("SMOKE_USER_B");
@@ -165,9 +173,14 @@ const otherKey = await post(
 assert.equal(otherKey.status, 403, otherKey.body);
 pass("S3 refuses another key");
 
+const tagsOf = async () =>
+  (await s3.send(new GetObjectTaggingCommand({ Bucket: bucket, Key: key })))
+    .TagSet;
+
 const ok = await post(form, { size: 1000 });
 assert.equal(ok.status, 204, ok.body);
-pass("S3 accepts the JPEG");
+assert.deepEqual(await tagsOf(), [{ Key: "upload", Value: "pending" }]);
+pass("S3 accepts the JPEG, tagged upload=pending");
 
 for (const [check, call] of [
   ["createUpload", () => createUpload(b.accessToken)],
@@ -189,7 +202,8 @@ const confirmed = await mutation("photos.confirmUpload", {
   input: { photoId: photo.id },
 });
 assert.equal(confirmed.status, 200, "A's confirmUpload succeeds");
-pass("A confirms the upload");
+assert.deepEqual(await tagsOf(), []);
+pass("A confirms the upload, which clears the tag");
 
 async function downloadUrls(token: string) {
   const response = await query("photos.downloadUrls", {

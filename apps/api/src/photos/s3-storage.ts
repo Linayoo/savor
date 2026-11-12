@@ -1,5 +1,6 @@
 import {
   DeleteObjectsCommand,
+  DeleteObjectTaggingCommand,
   GetObjectCommand,
   HeadObjectCommand,
   type S3Client,
@@ -12,6 +13,7 @@ import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import {
   DOWNLOAD_EXPIRES_SECONDS,
   MAX_PHOTO_BYTES,
+  PENDING_TAGGING,
   PHOTO_CONTENT_TYPE,
   UPLOAD_EXPIRES_SECONDS,
   type PhotoStorage,
@@ -27,6 +29,7 @@ export const UPLOAD_CONDITIONS: NonNullable<
 > = [
   { "Content-Type": PHOTO_CONTENT_TYPE },
   ["content-length-range", 1, MAX_PHOTO_BYTES],
+  { tagging: PENDING_TAGGING },
 ];
 
 // Photos in the bucket from infra/app/photos.tf. URLs are signed with the
@@ -39,7 +42,10 @@ export function s3PhotoStorage(client: S3Client, bucket: string): PhotoStorage {
         Key: key,
         Conditions: UPLOAD_CONDITIONS,
         // A condition's value must also be a form field
-        Fields: { "Content-Type": PHOTO_CONTENT_TYPE },
+        Fields: {
+          "Content-Type": PHOTO_CONTENT_TYPE,
+          tagging: PENDING_TAGGING,
+        },
         Expires: UPLOAD_EXPIRES_SECONDS,
       }),
 
@@ -54,6 +60,12 @@ export function s3PhotoStorage(client: S3Client, bucket: string): PhotoStorage {
         if ((error as { name?: string }).name === "NotFound") return null;
         throw error;
       }
+    },
+
+    async clearPendingTag(key) {
+      await client.send(
+        new DeleteObjectTaggingCommand({ Bucket: bucket, Key: key }),
+      );
     },
 
     downloadUrl: (key) =>

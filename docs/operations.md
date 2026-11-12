@@ -148,6 +148,7 @@ It checks that:
 
 - the bucket blocks public access, refuses plain HTTP and grants nothing in its policy
 - S3 refuses a file over 10 MB, another content type and another key
+- an upload is tagged `upload=pending` until `confirmUpload` clears the tag, and the bucket expires objects still tagged after 2 days (spec 009)
 - B gets nothing for A's photo
 - deleting the moment deletes the object
 

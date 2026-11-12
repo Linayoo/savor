@@ -1,6 +1,7 @@
 import { S3Client } from "@aws-sdk/client-s3";
 import { describe, expect, it, vi } from "vitest";
 import { s3PhotoStorage } from "./s3-storage";
+import { PENDING_TAGGING } from "./storage";
 
 const bucket = "savor-photos-123456789012";
 const key = "users/sub-a/photos/6f1c2c1e-1b7a-4c1e-9d2a-3f4b5c6d7e8f.jpg";
@@ -36,6 +37,7 @@ describe("createUpload", () => {
     expect(fields).toMatchObject({
       key,
       "Content-Type": "image/jpeg",
+      tagging: PENDING_TAGGING,
       "X-Amz-Security-Token": "session-token",
     });
     expect(policy.conditions).toEqual(
@@ -44,6 +46,7 @@ describe("createUpload", () => {
         { bucket },
         { "Content-Type": "image/jpeg" },
         ["content-length-range", 1, 10 * 1024 * 1024],
+        { tagging: PENDING_TAGGING },
         { "X-Amz-Security-Token": "session-token" },
       ]),
     );
@@ -122,5 +125,20 @@ describe("deleteAll", () => {
     await expect(s3PhotoStorage(s3, bucket).deleteAll([key])).rejects.toThrow(
       "AccessDenied",
     );
+  });
+});
+
+describe("clearPendingTag", () => {
+  it("removes the object's tags, so the lifecycle rule keeps it", async () => {
+    const s3 = client();
+    const send = vi.spyOn(s3, "send").mockResolvedValue({} as never);
+
+    await s3PhotoStorage(s3, bucket).clearPendingTag(key);
+
+    const [command] = send.mock.calls[0] as unknown as [
+      { constructor: { name: string }; input: unknown },
+    ];
+    expect(command.constructor.name).toBe("DeleteObjectTaggingCommand");
+    expect(command.input).toEqual({ Bucket: bucket, Key: key });
   });
 });

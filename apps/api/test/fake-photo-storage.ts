@@ -1,6 +1,7 @@
 import { UPLOAD_CONDITIONS } from "../src/photos/s3-storage";
 import {
   DOWNLOAD_EXPIRES_SECONDS,
+  PENDING_TAGGING,
   PHOTO_CONTENT_TYPE,
   UPLOAD_EXPIRES_SECONDS,
   type PhotoStorage,
@@ -26,7 +27,10 @@ export class S3Refused extends Error {
 export class FakePhotoStorage implements PhotoStorage {
   now = () => Date.now();
   failDeletes = false;
+  failTagging = false;
   readonly objects = new Map<string, StoredObject>();
+  // Each object's tags, as S3 keeps them
+  readonly tags = new Map<string, Record<string, string>>();
   readonly deletes: string[][] = [];
   private policies = new Map<string, Policy>();
 
@@ -39,7 +43,12 @@ export class FakePhotoStorage implements PhotoStorage {
     });
     return {
       url: "https://fake-s3.test/",
-      fields: { key, "Content-Type": PHOTO_CONTENT_TYPE, Policy: policy },
+      fields: {
+        key,
+        "Content-Type": PHOTO_CONTENT_TYPE,
+        tagging: PENDING_TAGGING,
+        Policy: policy,
+      },
     };
   }
 
@@ -80,6 +89,12 @@ export class FakePhotoStorage implements PhotoStorage {
       size: file.size,
       contentType: form["Content-Type"],
     });
+    this.tags.set(policy.key, parseTagging(form.tagging));
+  }
+
+  async clearPendingTag(key: string) {
+    if (this.failTagging) throw new Error("S3 is unavailable");
+    if (this.objects.has(key)) this.tags.set(key, {});
   }
 
   async size(key: string) {
@@ -107,4 +122,15 @@ export class FakePhotoStorage implements PhotoStorage {
     this.deletes.push(keys);
     keys.forEach((key) => this.objects.delete(key));
   }
+}
+
+// The tag set of a POST upload's tagging field
+function parseTagging(xml: string | undefined): Record<string, string> {
+  const tags: Record<string, string> = {};
+  for (const [, key, value] of (xml ?? "").matchAll(
+    /<Tag><Key>(.*?)<\/Key><Value>(.*?)<\/Value><\/Tag>/g,
+  )) {
+    tags[key] = value;
+  }
+  return tags;
 }
