@@ -18,6 +18,7 @@
     "test": "vitest run",
     "smoke": "tsx scripts/smoke.ts",
     "photo-checks": "tsx scripts/photo-checks.ts",
+    "tagging-check": "tsx scripts/tagging-check.ts",
     "letter-preview": "tsx scripts/letter-preview.ts",
     "seed-moments": "tsx scripts/seed-moments.ts"
   },
