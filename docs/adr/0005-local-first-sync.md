@@ -18,6 +18,7 @@ Sharing moments between users is out of scope.
    - The app talks to SQLite through `drizzle-orm/expo-sqlite`, using the same stable drizzle-orm 0.45.x as the API (ADR 0003).
 3. Moment ids become UUIDs generated on the device. Existing ids are migrated.
 4. Every moment has `updatedAt` and `deletedAt`. Deleting sets `deletedAt` (a tombstone) instead of removing the row.
+   - Amended 2026-11-12: a tombstone keeps no words. Its text is emptied and its kind cleared, on the server and on the phone, leaving only the id, user, timestamps, `deletedAt` and version (spec 003). Tombstones stored before were cleared by migrations.
 5. The server gives every change a per-user, increasing `version`.
 6. Sync runs in two steps, when the app opens, after a change, and on pull-to-refresh:
    - Push: send moments changed locally since the last sync.

@@ -171,7 +171,31 @@ describe("deletes", () => {
     });
 
     const [row] = (await storedFor(user)).moments;
-    expect(row).toMatchObject({ text: "Gone soon", deletedAt: t + 1000 });
+    expect(row).toMatchObject({ text: "", kind: null, deletedAt: t + 1000 });
+  });
+
+  it("keep no text or kind for a moment deleted before it reached the server", async () => {
+    const user = newUserId();
+    const deleted = moment({ deletedAt: t + 1000, updatedAt: t + 1000 });
+
+    await as(user).sync.push({ moments: [deleted], photos: [] });
+
+    expect(withoutVersion((await storedFor(user)).moments)).toEqual([
+      { ...deleted, userId: user, text: "", kind: null },
+    ]);
+  });
+
+  it("clear the text and kind of a stored moment, keeping its times", async () => {
+    const user = newUserId();
+    const original = moment({ text: "Gone soon", kind: "friends" });
+    await as(user).sync.push({ moments: [original], photos: [] });
+    const deleted = { ...original, deletedAt: t + 1000, updatedAt: t + 1000 };
+
+    await as(user).sync.push({ moments: [deleted], photos: [] });
+
+    expect((await as(user).sync.pull({ sinceVersion: 0 })).moments).toEqual([
+      { ...deleted, text: "", kind: null, version: 2 },
+    ]);
   });
 
   it("still apply a later delete to a deleted row", async () => {

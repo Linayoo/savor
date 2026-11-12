@@ -127,12 +127,33 @@ describe("pullChanges", () => {
 
     await pull();
 
-    expect(row(db, walk.id)).toMatchObject({ deletedAt: t + 5000, pending: 0 });
+    expect(row(db, walk.id)).toMatchObject({
+      text: "",
+      kind: null,
+      deletedAt: t + 5000,
+      pending: 0,
+    });
     expect(listMoments(db)).toEqual([]);
     for (const photo of db.select().from(momentPhotos).all()) {
       expect(photo.deletedAt).toBe(t + 5000);
     }
     expect(deleteFiles).toHaveBeenCalledWith(["w1.jpg", "w2.jpg"]);
+  });
+
+  it("stores a moment deleted on another device with no text or kind", async () => {
+    const { db, pull, seed } = setup();
+    // As a server from before deletes cleared the words would send it
+    const gone = change({ updatedAt: t + 5000, deletedAt: t + 5000 });
+    seed(gone);
+
+    await pull();
+
+    expect(row(db, gone.id)).toEqual({
+      ...gone,
+      text: "",
+      kind: null,
+      pending: 0,
+    });
   });
 
   it("deletes the files of a moment without local changes too", async () => {

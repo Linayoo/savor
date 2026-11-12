@@ -118,7 +118,11 @@ export function updateMoment(
 }
 
 // Marks the moment and its photos as deleted and returns the photo file
-// names, so the caller can remove the files from the phone
+// names, so the caller can remove the files from the phone. The moment keeps
+// no text or kind (spec 003, ADR 0005).
+// What a deleted moment keeps of its words
+export const noWords = { text: "", kind: null };
+
 export function deleteMoment(
   db: AppDb,
   id: string,
@@ -140,7 +144,7 @@ export function deleteMoment(
       .flatMap((p) => (p.fileName === null ? [] : [p.fileName]));
 
     tx.update(moments)
-      .set({ deletedAt: time, updatedAt: time, pending: 1 })
+      .set({ ...noWords, deletedAt: time, updatedAt: time, pending: 1 })
       .where(and(eq(moments.id, id), isNull(moments.deletedAt)))
       .run();
     tx.update(momentPhotos)

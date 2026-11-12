@@ -1,6 +1,7 @@
 import { pullOutputSchema, type PullOutput } from "@savor/shared";
 import { and, eq, isNull } from "drizzle-orm";
 import { getMeta, setMeta } from "../db/app-meta";
+import { noWords } from "../db/moments-store";
 import { momentPhotos, moments } from "../db/schema";
 import type { AppDb } from "../db/types";
 import { SyncError, type SyncApi } from "./api";
@@ -54,8 +55,11 @@ function parsePage(page: PullOutput): PullOutput {
 // Returns the file names of photos the pulled moment's delete removed
 function applyMoment(
   tx: AppDb,
-  { version: _, ...pulled }: PullOutput["moments"][number],
+  { version: _, ...change }: PullOutput["moments"][number],
 ): string[] {
+  const isDelete = change.deletedAt !== null;
+  // A deleted moment keeps no words, even if the server sent some
+  const pulled = isDelete ? { ...change, ...noWords } : change;
   const local = tx
     .select({ pending: moments.pending, deletedAt: moments.deletedAt })
     .from(moments)
@@ -69,7 +73,6 @@ function applyMoment(
     return [];
   }
 
-  const isDelete = pulled.deletedAt !== null;
   // Local changes win until they're pushed, except against a delete, which
   // is final on the server too
   if (local.pending === 1 && !isDelete) return [];

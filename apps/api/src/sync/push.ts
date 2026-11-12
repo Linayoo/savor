@@ -1,4 +1,4 @@
-import type { PushInput, PushOutput } from "@savor/shared";
+import type { MomentChange, PushInput, PushOutput } from "@savor/shared";
 import { TRPCError } from "@trpc/server";
 import { and, eq, inArray, ne, sql, type SQL } from "drizzle-orm";
 import type { PgColumn } from "drizzle-orm/pg-core";
@@ -12,6 +12,11 @@ const excluded = (column: PgColumn) => sql.raw(`excluded."${column.name}"`);
 // delete. The user check guards against another user's row.
 const upsertWhere = (table: typeof moments | typeof momentPhotos): SQL =>
   sql`${table.userId} = ${excluded(table.userId)} and (${table.deletedAt} is null or ${excluded(table.deletedAt)} is not null)`;
+
+// A deleted moment keeps no words: only its id, user, times and version
+// (spec 003, ADR 0005)
+const tombstone = (change: MomentChange): MomentChange =>
+  change.deletedAt === null ? change : { ...change, text: "", kind: null };
 
 // Stores a batch of changes for one user, all or nothing (spec 003)
 export function push(
@@ -27,7 +32,7 @@ export function push(
       version += 1;
       await tx
         .insert(moments)
-        .values({ ...change, userId, version })
+        .values({ ...tombstone(change), userId, version })
         .onConflictDoUpdate({
           target: moments.id,
           set: {

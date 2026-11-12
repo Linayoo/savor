@@ -49,6 +49,7 @@ Push, in one interactive transaction:
 3. For each change, in input order (moments before photos), assign the next version and upsert.
 4. Last write wins by arrival: a change that reaches the server later replaces the stored row.
 5. Deletes are final: once a row has `deleted_at`, later changes to it are ignored, except another delete. A stale edit can't bring a deleted moment back.
+   - A deleted moment keeps no words: the server stores it with `text` empty and `kind` null, keeping only `id`, `user_id`, the timestamps, `deleted_at` and `version`. The phone does the same when it deletes a moment or applies a pulled delete. Added 2026-11-12, with migrations that cleared tombstones stored before.
 6. Pushing the same batch twice leaves the same data apart from `version` (it only uses up versions).
 7. Return the user's version after the push.
 
@@ -84,6 +85,7 @@ Pull: rows of the calling user with `version > sinceVersion`, moments and photos
 - [x] Given a pull with `limit` smaller than the number of changes, then `hasMore` is true, and pulling again from the returned version returns the rest with no gaps and no repeats.
 - [x] Given a moment edited and pushed again, then a pull from the earlier version returns it once, with the new text and a higher version.
 - [x] Given a deleted moment, when a later push contains an edit to it, then it stays deleted and its text is unchanged.
+- [x] Given a push that deletes a moment, whether the server has it or not, then the stored row has empty `text` and null `kind`, and a pull returns it that way; a stale edit after it doesn't bring the text back. Verified: sync tests "keep no text or kind for a moment deleted before it reached the server", "clear the text and kind of a stored moment, keeping its times" and the stale-edit test; the scrub_tombstones migration test on Postgres; the phone's deleteMoment, pull and SQLite migration tests.
 - [x] Given the same push sent twice, then the stored moments and photos are the same as after one push, apart from `version`.
 - [x] Given user A's moment, when user B pushes a change with the same id, then the push fails with `CONFLICT` and A's moment is unchanged; and user B's pull never returns A's rows.
 - [x] Given user A's moment, when user B pushes a photo whose `momentId` is A's moment, then the push fails with `CONFLICT` and nothing from B's push is stored.

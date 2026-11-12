@@ -85,3 +85,43 @@ describe("the photo sync migration", () => {
     ]);
   });
 });
+
+describe("the scrub tombstones migration", () => {
+  it("clears text and kind from deleted moments and leaves live ones alone", () => {
+    const db = drizzle(new Database(":memory:"), { schema });
+    const journal = JSON.parse(
+      readFileSync(path.join(migrationsFolder, "meta/_journal.json"), "utf8"),
+    );
+    const scrub = journal.entries.findIndex((e: { tag: string }) =>
+      e.tag.endsWith("_scrub_tombstones"),
+    );
+    expect(scrub).toBeGreaterThan(0);
+    migrate(db, { migrationsFolder: migrationsUpTo(scrub) });
+    const insert = db.$client.prepare(
+      "insert into moments (id, text, kind, created_at, updated_at, deleted_at, pending) values (?, ?, ?, ?, ?, ?, 0)",
+    );
+    insert.run("6f1c1d0e-1c1a-4f6e-9a51-3f3f0b0e2a11", "Gone", "meal", 1, 2, 2);
+    insert.run(
+      "6f1c1d0e-1c1a-4f6e-9a51-3f3f0b0e2a12",
+      "Kept",
+      "film",
+      1,
+      1,
+      null,
+    );
+
+    migrate(db, { migrationsFolder });
+
+    expect(
+      db
+        .select()
+        .from(schema.moments)
+        .orderBy(schema.moments.id)
+        .all()
+        .map(({ text, kind, deletedAt }) => ({ text, kind, deletedAt })),
+    ).toEqual([
+      { text: "", kind: null, deletedAt: 2 },
+      { text: "Kept", kind: "film", deletedAt: null },
+    ]);
+  });
+});

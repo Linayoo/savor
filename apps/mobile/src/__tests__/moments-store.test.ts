@@ -194,6 +194,25 @@ describe("deleteMoment", () => {
     }
   });
 
+  it("keeps no text or kind in the deleted moment", () => {
+    const { db, deps } = setup();
+    const gone = insertMoment(
+      db,
+      { text: "Ramen with Ana", photos: [], kind: "meal" },
+      deps,
+    );
+
+    deleteMoment(db, gone.id, deps);
+
+    expect(
+      db
+        .select()
+        .from(moments)
+        .all()
+        .find((m) => m.id === gone.id),
+    ).toMatchObject({ text: "", kind: null, pending: 1 });
+  });
+
   it("returns the photo file names so they can be removed from the phone", () => {
     const { db, deps } = setup();
     const moment = insertMoment(
