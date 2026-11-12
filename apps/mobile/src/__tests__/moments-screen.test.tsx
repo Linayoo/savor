@@ -170,6 +170,47 @@ describe("Moments screen: adding photos", () => {
     expect(draftPhotos()).toHaveLength(2);
   });
 
+  it("offers the picker only the room left in the moment", async () => {
+    const user = await renderScreen();
+
+    await chooseFromLibrary(user, [asset("a"), asset("b"), asset("c")]);
+    await chooseFromLibrary(user, []);
+
+    expect(
+      jest.mocked(ImagePicker.launchImageLibraryAsync).mock.lastCall?.[0],
+    ).toMatchObject({ allowsMultipleSelection: true, selectionLimit: 7 });
+  });
+
+  it("keeps at most 10 photos, even if the picker returns more", async () => {
+    const user = await renderScreen();
+
+    await chooseFromLibrary(
+      user,
+      Array.from({ length: 12 }, (_, i) => asset(`p${i}`)),
+    );
+
+    expect(draftPhotos()).toHaveLength(10);
+  });
+
+  it("disables adding photos at 10, and says why", async () => {
+    const user = await renderScreen();
+    expect(
+      screen.queryByText("A moment holds up to 10 photos."),
+    ).not.toBeOnTheScreen();
+
+    await chooseFromLibrary(
+      user,
+      Array.from({ length: 10 }, (_, i) => asset(`p${i}`)),
+    );
+
+    expect(screen.getByLabelText("Add photos")).toBeDisabled();
+    expect(
+      screen.getByText("A moment holds up to 10 photos."),
+    ).toBeOnTheScreen();
+    await user.press(draftPhotos()[0]);
+    expect(screen.getByLabelText("Add photos")).toBeEnabled();
+  });
+
   it("adds library photos without an asset id, and every camera photo", async () => {
     const user = await renderScreen();
 

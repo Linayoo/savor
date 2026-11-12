@@ -19,6 +19,7 @@ import {
   type TextInputInstance,
   View,
 } from "react-native";
+import { MAX_PHOTOS_PER_MOMENT } from "@savor/shared";
 import { KindChips } from "@/components/kind-chips";
 import { kindIcon, momentLine, type MomentKind } from "@/kinds";
 import { photoUri, useMoments, type Moment } from "../../moments";
@@ -51,8 +52,11 @@ export default function Index() {
       const added = assets
         .filter((a) => !a.assetId || !inDraft.has(a.assetId))
         .map((a) => ({ uri: a.uri, assetId: a.assetId ?? null }));
-      return [...prev, ...added];
+      // The server keeps at most this many per moment (spec 009)
+      return [...prev, ...added].slice(0, MAX_PHOTOS_PER_MOMENT);
     });
+
+  const roomLeft = MAX_PHOTOS_PER_MOMENT - draftPhotos.length;
 
   const takePhoto = async () => {
     const { granted } = await ImagePicker.requestCameraPermissionsAsync();
@@ -68,6 +72,7 @@ export default function Index() {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ["images"],
       allowsMultipleSelection: true,
+      selectionLimit: roomLeft,
       quality: 0.8,
     });
     if (!result.canceled) addPhotos(result.assets);
@@ -217,6 +222,12 @@ export default function Index() {
           </ScrollView>
         )}
 
+        {roomLeft === 0 && (
+          <Text style={styles.note}>
+            A moment holds up to {MAX_PHOTOS_PER_MOMENT} photos.
+          </Text>
+        )}
+
         <KindChips selected={draftKind} onChange={setDraftKind} />
 
         <View style={styles.actions}>
@@ -227,7 +238,8 @@ export default function Index() {
           ) : (
             <Pressable
               onPress={openPhotoOptions}
-              style={styles.iconButton}
+              disabled={roomLeft === 0}
+              style={[styles.iconButton, roomLeft === 0 && styles.disabled]}
               accessibilityLabel="Add photos"
             >
               <Ionicons name="camera-outline" size={22} color="#6B6158" />
@@ -345,6 +357,12 @@ const styles = StyleSheet.create({
   },
   thumbRow: { marginTop: 12 },
   thumb: { width: 64, height: 64, borderRadius: 8, marginRight: 6 },
+  note: {
+    fontFamily: fonts.serifItalic,
+    fontSize: 14,
+    color: "#6B6158",
+    marginTop: 8,
+  },
   actions: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -367,6 +385,7 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     paddingHorizontal: 22,
   },
+  disabled: { opacity: 0.4 },
   buttonText: { fontFamily: fonts.bodyMedium, color: "#FFFCF6", fontSize: 15 },
   moment: {
     flexDirection: "row",
