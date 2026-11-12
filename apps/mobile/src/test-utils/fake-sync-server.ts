@@ -11,6 +11,7 @@ import {
   type PullOutput,
   type PushInput,
   type CreateUploadOutput,
+  type Quota,
 } from "@savor/shared";
 import type { LettersApi } from "@/letters/api";
 import { SyncError, type SyncApi, type SyncErrorKind } from "@/sync/api";
@@ -47,7 +48,7 @@ export class FakeSyncServer {
     Stored<PhotoChange & { uploadedAt: number | null }>
   >();
   private versions = new Map<string, number>();
-  private faults: { method: Method; kind: SyncErrorKind }[] = [];
+  private faults: { method: Method; kind: SyncErrorKind; quota?: Quota }[] = [];
   private hold: { started: () => void; released: Promise<void> } | null = null;
   // Letters (spec 007), written by the server's job, never by the phone
   private letters = new Map<string, Letter[]>();
@@ -106,9 +107,10 @@ export class FakeSyncServer {
   }
 
   // The next call to method fails with kind, as a network error or the
-  // server would. upload and download are the phone's requests to S3.
-  failNext(method: Method, kind: SyncErrorKind = "unavailable") {
-    this.faults.push({ method, kind });
+  // server would. upload and download are the phone's requests to S3. An
+  // overQuota fault names its quota (spec 009).
+  failNext(method: Method, kind: SyncErrorKind = "unavailable", quota?: Quota) {
+    this.faults.push({ method, kind, quota });
   }
 
   // S3's side of a presigned POST: stores the file at the form's key
@@ -256,7 +258,7 @@ export class FakeSyncServer {
     const i = this.faults.findIndex((f) => f.method === method);
     if (i === -1) return;
     const [fault] = this.faults.splice(i, 1);
-    throw new SyncError(fault.kind);
+    throw new SyncError(fault.kind, fault.kind, fault.quota);
   }
 
   private async push(userId: string, raw: PushInput) {

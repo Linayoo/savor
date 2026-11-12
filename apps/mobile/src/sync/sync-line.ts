@@ -15,6 +15,7 @@ export function syncLine(
   now: number,
 ): string {
   if (!online) return "Waiting for a connection";
+  if (status.phase === "waiting") return "Some changes will sync tomorrow";
   if (status.phase === "retrying" || status.phase === "stopped") {
     return "Couldn't sync, will try again";
   }

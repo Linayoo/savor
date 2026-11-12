@@ -5,6 +5,7 @@ import type {
   PullOutput,
   PushInput,
   PushOutput,
+  Quota,
 } from "@savor/shared";
 
 // What the sync engine needs from the server. The app implements it with
@@ -24,13 +25,22 @@ export interface SyncApi {
 // - unavailable: no connection, a timeout or a server error; worth retrying
 // - notFound: a photo the server doesn't have, or no longer has (NOT_FOUND);
 //   the photo queues handle it, it never fails a sync
+// - overQuota: the server refused for one of the account's quotas
+//   (TOO_MANY_REQUESTS with a quota, spec 009); nothing is lost, it waits
 export type SyncErrorKind =
-  "conflict" | "rejected" | "unauthorized" | "unavailable" | "notFound";
+  | "conflict"
+  | "rejected"
+  | "unauthorized"
+  | "unavailable"
+  | "notFound"
+  | "overQuota";
 
 export class SyncError extends Error {
   constructor(
     readonly kind: SyncErrorKind,
     message: string = kind,
+    // Which quota, for overQuota
+    readonly quota: Quota | null = null,
   ) {
     super(message);
     this.name = "SyncError";

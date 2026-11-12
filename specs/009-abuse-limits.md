@@ -29,6 +29,7 @@ Rules:
 - Deletes and edits never count toward a quota, and a quota never refuses one. Deleting must always work, for privacy.
 - A refusal changes nothing on the server and doesn't use up versions, the same as any failed push (spec 003).
 - On the phone, nothing is lost. A moment the server refuses stays on the phone, pending, and syncs once the quota allows it. Photos over the storage quota stay on this phone only.
+- A moment kept with more than 10 photos before 1.0.4 keeps them all on the phone. Its first 10 by position sync; the rest are never pushed or uploaded, so they stay on that phone. Deleting one of the first 10 brings the next one in. So 1.0.4 never meets the `photosPerMoment` refusal. A phone still on 1.0.3 that pushes such a moment is refused until it updates.
 - Quotas count per account, not per device.
 
 ### What the person sees
@@ -36,8 +37,8 @@ Rules:
 The words are plain and never count, rank or scold (CLAUDE.md product rules). They describe what happens next, not what the person did.
 
 - **Photos per moment:** the picker never offers more than the moment has room for, and the camera button is disabled at 10. The card says, quietly: "A moment holds up to 10 photos." This never reaches the server in normal use; the server check is for other clients.
-- **Daily quotas:** the Account screen's sync line reads "Some changes will sync tomorrow". The timeline shows no warning, the same as other sync states (spec 005).
-- **Storage:** the Account screen shows one line: "New photos stay on this phone. Savor's space for your photos is full." Moments keep syncing, with their text and kind. Deleting moments with photos frees space, and the waiting photos then upload.
+- **Daily quotas:** sync goes to a `waiting` status, and the Account screen's sync line reads "Some changes will sync tomorrow". The rest of the sync still runs: the pull, and the photo uploads and downloads. The refused part is tried again at the longest retry delay, 10 minutes, rather than backing off from 5 seconds. The timeline shows no warning, the same as other sync states (spec 005).
+- **Storage:** a `storage` refusal doesn't fail the sync. The Account screen shows one line: "New photos stay on this phone. Savor's space for your photos is full." Moments keep syncing, with their text and kind. The waiting photos are tried at every sync, so after deleting moments with photos frees space they upload, and the line goes away.
 
 ### Caps on the Lambdas
 
@@ -91,7 +92,8 @@ Phone: none. The photos-per-moment limit is a constant in `packages/shared`, use
 - `sync.push`:
   - checks photos per moment and new moments per day after applying the changes, inside the transaction, so a refusal rolls it all back;
   - counts new moments only for ids that weren't in `moments` before.
-- After a `momentsPerDay` refusal, the phone pushes a batch with only its pending edits and deletes. Deletes and edits keep reaching the server while new moments wait.
+- After a `momentsPerDay` refusal, the phone pushes only its pending deletes, of moments and of photos. Deletes keep reaching the server; new moments and edits wait for the next day. The phone can't tell a new moment from an edit, because both are just pending, and deletes are what matters for privacy. Decided 2026-11-12.
+- A `TOO_MANY_REQUESTS` without a quota, such as API Gateway's own throttle, stays `unavailable`.
 - `photos.createUpload`:
   - checks uploads per day and storage before signing the form;
   - the form gains a `tagging` field and the matching policy condition.
@@ -129,7 +131,8 @@ Quotas
 App
 
 - [ ] The picker offers only the room left in the moment, and the camera button is disabled at 10, with the line "A moment holds up to 10 photos."
-- [ ] Given a `momentsPerDay` refusal, then the moments stay on the phone, pending, the sync line says "Some changes will sync tomorrow", and pending deletes and edits still sync.
+- [ ] Given a `momentsPerDay` refusal, then the moments stay on the phone, pending, the sync line says "Some changes will sync tomorrow", pending deletes still sync, edits wait, and changes from other devices are still pulled.
+- [ ] Given a moment kept with 12 photos, then the moment and its first 10 photos sync and upload, and the other 2 stay on this phone.
 - [ ] Given a `storage` refusal, then the moment syncs without that photo, the photo stays on this phone, and the Account screen shows the storage line; no counts appear anywhere.
 
 Infrastructure

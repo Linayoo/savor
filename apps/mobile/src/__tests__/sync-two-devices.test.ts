@@ -330,17 +330,20 @@ describe("photos on two devices", () => {
 
   it("asks for at most 50 download URLs at a time", async () => {
     const { server, one, two } = twoDevices();
-    one.keep(
-      "Album",
-      "friends",
-      Array.from({ length: 60 }, (_, i) => `a${i}.jpg`),
-    );
+    // Six moments of 10, the most a moment syncs (spec 009)
+    for (let m = 0; m < 6; m++) {
+      one.keep(
+        `Album ${m}`,
+        "friends",
+        Array.from({ length: 10 }, (_, i) => `a${m}-${i}.jpg`),
+      );
+    }
     await one.sync();
 
     await two.sync();
 
     expect(downloadCalls(server)).toEqual([50, 10]);
-    expect(two.filesOf()).toHaveLength(60);
+    expect(two.photoRows().filter((p) => p.fileName !== null)).toHaveLength(60);
   });
 
   it("removes the photos of a deleted moment from the other device and the bucket", async () => {

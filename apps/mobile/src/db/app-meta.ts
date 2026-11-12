@@ -11,6 +11,8 @@ type Meta = {
   lastPulledVersion: number;
   // When the last sync finished, ms since epoch
   lastSyncedAt: number | null;
+  // Photos the server had no space for, waiting on this phone (spec 009)
+  photosWaitingForSpace: boolean;
 };
 
 const codecs: {
@@ -27,6 +29,10 @@ const codecs: {
   lastSyncedAt: {
     read: (v) => (v === null ? null : Number(v)),
     write: (v) => (v === null ? null : String(v)),
+  },
+  photosWaitingForSpace: {
+    read: (v) => v === "1",
+    write: (v) => (v ? "1" : null),
   },
 };
 

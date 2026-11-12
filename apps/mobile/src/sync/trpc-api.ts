@@ -1,4 +1,5 @@
 import type { AppRouter } from "@savor/api/router";
+import { QUOTAS, type Quota } from "@savor/shared";
 import { createTRPCClient, httpLink, TRPCClientError } from "@trpc/client";
 import type { LettersApi } from "../letters/api";
 import { SyncError, type SyncApi, type SyncErrorKind } from "./api";
@@ -75,6 +76,11 @@ function toSyncError(error: unknown): SyncError {
   if (!(error instanceof TRPCClientError)) return new SyncError("unavailable");
   const code: string | undefined = error.data?.code;
   if (code && kindByCode[code]) return new SyncError(kindByCode[code]!);
+  // A quota refusal names its quota; API Gateway's own throttle doesn't
+  const quota: unknown = error.data?.quota;
+  if (code === "TOO_MANY_REQUESTS" && isQuota(quota)) {
+    return new SyncError("overQuota", "overQuota", quota);
+  }
   // API Gateway answers 401 itself, without tRPC's shape, before the Lambda
   // runs (spec 004)
   const status: number | undefined =
@@ -82,3 +88,6 @@ function toSyncError(error: unknown): SyncError {
     (error.meta?.response as Response | undefined)?.status;
   return new SyncError(status === 401 ? "unauthorized" : "unavailable");
 }
+
+const isQuota = (value: unknown): value is Quota =>
+  QUOTAS.includes(value as Quota);

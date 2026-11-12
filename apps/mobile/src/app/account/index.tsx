@@ -55,6 +55,7 @@ export default function Account() {
       <Text style={styles.label}>Signed in as</Text>
       <Text style={styles.email}>{account.session.email}</Text>
       <SyncLine />
+      <StorageLine />
       <MonthlyLetterSwitch />
       <FormError
         message={signOutFailed ? "Couldn't sign out. Try again." : undefined}
@@ -80,6 +81,17 @@ function SyncLine() {
 
   if (!status) return null;
   return <Text style={styles.syncLine}>{syncLine(status, online, now)}</Text>;
+}
+
+// Only while photos wait for space, with no count (spec 009)
+function StorageLine() {
+  const { photosWaitingForSpace } = useSync();
+  if (!photosWaitingForSpace) return null;
+  return (
+    <Text style={styles.syncLine}>
+      New photos stay on this phone. Savor&apos;s space for your photos is full.
+    </Text>
+  );
 }
 
 // Off until the explanation's "Turn on"; off again at once (spec 007)

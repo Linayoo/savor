@@ -1,3 +1,4 @@
+import type { Quota } from "@savor/shared";
 import { getMeta } from "../db/app-meta";
 import type { AppDb } from "../db/types";
 import { SyncError, type SyncApi, type SyncErrorKind } from "./api";
@@ -13,6 +14,8 @@ import { uploadPhotos } from "./upload";
 // - retrying: the last sync failed and another try is scheduled
 // - stopped: the last sync failed in a way retrying won't fix; the next
 //   trigger tries again
+// - waiting: the server refused for a daily quota (spec 009); the rest
+//   syncs, and the refused part is tried again at the longest retry delay
 export type SyncStatus =
   | { phase: "idle"; lastSyncedAt: number | null }
   | {
@@ -27,9 +30,10 @@ export type SyncStatus =
     }
   | {
       phase: "stopped";
-      problem: Exclude<SyncErrorKind, "unavailable" | "notFound">;
+      problem: Exclude<SyncErrorKind, "unavailable" | "notFound" | "overQuota">;
       lastSyncedAt: number | null;
-    };
+    }
+  | { phase: "waiting"; quota: Quota; lastSyncedAt: number | null };
 
 export type SyncEngineDeps = {
   db: AppDb;
@@ -143,8 +147,20 @@ export class SyncEngine {
       phase: "syncing",
       lastSyncedAt: this.status.lastSyncedAt,
     });
+    // A quota refusal from the push still lets the pull and the photos run
+    let overQuota: SyncError | null = null;
+    const push = async () => {
+      try {
+        await pushPending(db, api);
+      } catch (error) {
+        if (!(error instanceof SyncError && error.kind === "overQuota")) {
+          throw error;
+        }
+        overQuota = error;
+      }
+    };
     try {
-      await pushPending(db, api);
+      await push();
       const { changed } = await pullChanges(db, api, { now, deleteFiles });
       if (cancelled()) return;
       if (changed) this.notifyChange();
@@ -163,7 +179,7 @@ export class SyncEngine {
       });
       if (uploads.missingFiles) {
         this.notifyChange();
-        await pushPending(db, api);
+        await push();
       }
       const downloads = await downloadPhotos(db, api, transfer, {
         deleteFiles,
@@ -172,6 +188,7 @@ export class SyncEngine {
       if (downloads.downloaded && !cancelled()) this.notifyChange();
       if (uploads.failure) throw uploads.failure;
       if (downloads.failure) throw downloads.failure;
+      if (overQuota) throw overQuota;
       if (cancelled()) return;
       this.failures = 0;
       this.setStatus({
@@ -193,6 +210,12 @@ export class SyncEngine {
     const lastSyncedAt = this.status.lastSyncedAt;
     // Anything else, like a page that failed to apply, is worth another try
     const kind = error instanceof SyncError ? error.kind : "unavailable";
+    if (kind === "overQuota") {
+      const quota = (error as SyncError).quota ?? "momentsPerDay";
+      this.setStatus({ phase: "waiting", quota, lastSyncedAt });
+      this.retryAfter(this.retryDelaysMs.at(-1)!);
+      return;
+    }
     if (kind !== "unavailable" && kind !== "notFound") {
       this.setStatus({ phase: "stopped", problem: kind, lastSyncedAt });
       return;
@@ -200,9 +223,12 @@ export class SyncEngine {
 
     this.failures += 1;
     this.setStatus({ phase: "retrying", problem: "unavailable", lastSyncedAt });
-    if (this.stopped) return;
     const delays = this.retryDelaysMs;
-    const delay = delays[Math.min(this.failures, delays.length) - 1];
+    this.retryAfter(delays[Math.min(this.failures, delays.length) - 1]);
+  }
+
+  private retryAfter(delay: number) {
+    if (this.stopped) return;
     this.retryTimer = setTimeout(() => {
       this.retryTimer = null;
       void this.sync();

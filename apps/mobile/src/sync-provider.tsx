@@ -11,6 +11,7 @@ import {
 } from "react";
 import { AppState } from "react-native";
 import { useAccount } from "./account";
+import { getMeta } from "./db/app-meta";
 import type { AppDb } from "./db/types";
 import type { SyncApi } from "./sync/api";
 import { SyncEngine, type SyncStatus } from "./sync/engine";
@@ -22,6 +23,8 @@ export type SyncContextValue = {
   // null while signed out: nothing syncs
   status: SyncStatus | null;
   online: boolean;
+  // Photos the server had no space for, waiting on this phone (spec 009)
+  photosWaitingForSpace: boolean;
   // For pull-to-refresh; never rejects
   syncNow: () => Promise<void>;
   notifyLocalChange: () => void;
@@ -33,6 +36,7 @@ const noListeners = () => () => undefined;
 const signedOut: SyncContextValue = {
   status: null,
   online: true,
+  photosWaitingForSpace: false,
   syncNow: async () => undefined,
   notifyLocalChange: () => undefined,
   onChange: noListeners,
@@ -163,12 +167,14 @@ export function SyncProvider({
         ? {
             status,
             online,
+            // Each sync's uploads update it before the status changes
+            photosWaitingForSpace: getMeta(db, "photosWaitingForSpace"),
             syncNow: () => engine.sync(),
             notifyLocalChange: () => engine.notifyLocalChange(),
             onChange,
           }
         : { ...signedOut, onChange },
-    [engine, status, online, onChange],
+    [db, engine, status, online, onChange],
   );
 
   return <SyncContext.Provider value={value}>{children}</SyncContext.Provider>;

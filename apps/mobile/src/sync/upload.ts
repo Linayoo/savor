@@ -1,4 +1,5 @@
 import { and, asc, eq, isNotNull, isNull } from "drizzle-orm";
+import { setMeta } from "../db/app-meta";
 import { momentPhotos } from "../db/schema";
 import type { AppDb } from "../db/types";
 import { SyncError, type SyncApi } from "./api";
@@ -10,6 +11,9 @@ import { forEachInParallel, type PhotoTransfer } from "./photo-transfer";
 // happen between them.
 // - missingFiles: photos with no file left, now tombstoned and pending
 // - failure: the first error worth retrying, after every photo was tried
+// A photo the server has no space for (spec 009) isn't a failure: it waits
+// on this phone, noted in photosWaitingForSpace, and is tried again at the
+// next sync.
 export async function uploadPhotos(
   db: AppDb,
   api: SyncApi,
@@ -32,6 +36,7 @@ export async function uploadPhotos(
   if (waiting.length > 0) onStart();
 
   let missingFiles = false;
+  let noSpace = false;
   const errors = await forEachInParallel(waiting, 3, async (photo) => {
     const fileName = photo.fileName!;
     // Nothing left to upload, such as a temporary file from before spec 001:
@@ -59,7 +64,11 @@ export async function uploadPhotos(
       step = "confirmUpload";
       await api.confirmUpload({ photoId: photo.id });
     } catch (error) {
-      if (!isNotFound(error)) {
+      if (isOverQuota(error, "storage")) {
+        noSpace = true;
+        return;
+      }
+      if (!isNotFound(error) && !isOverQuota(error)) {
         logSyncError(`${step} failed for photo ${photo.id}`, error);
       }
       throw error;
@@ -79,8 +88,14 @@ export async function uploadPhotos(
 
   // NOT_FOUND: the photo was deleted elsewhere; the next pull removes it
   const failure = errors.find((e) => !isNotFound(e)) ?? null;
+  setMeta(db, "photosWaitingForSpace", noSpace);
   return { missingFiles, failure };
 }
 
 const isNotFound = (error: unknown) =>
   error instanceof SyncError && error.kind === "notFound";
+
+const isOverQuota = (error: unknown, quota?: string) =>
+  error instanceof SyncError &&
+  error.kind === "overQuota" &&
+  (quota === undefined || error.quota === quota);

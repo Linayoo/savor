@@ -2,7 +2,9 @@ import { act, render, screen, waitFor } from "@testing-library/react-native";
 import { randomUUID } from "node:crypto";
 import { AccountProvider, useAccount } from "@/account";
 import Index from "@/app/(tabs)/index";
+import Account from "@/app/account/index";
 import { getMeta, setMeta } from "@/db/app-meta";
+import { insertMoment } from "@/db/moments-store";
 import type { AppDb } from "@/db/types";
 import { MomentsProvider, useMoments } from "@/moments";
 import { SyncError, type SyncApi } from "@/sync/api";
@@ -36,6 +38,7 @@ function setup({
     signedIn: signedIn ? { userId: ana.userId, email: ana.email } : null,
   });
   const deleteFiles = jest.fn();
+  const transfer = new FakePhotoTransfer(server);
   const triggers = {
     connection: (_online: boolean) => undefined as void,
     foreground: () => undefined as void,
@@ -67,7 +70,7 @@ function setup({
         db={db}
         createApi={() => api ?? server.api(ana.userId)}
         deleteFiles={deleteFiles}
-        transfer={new FakePhotoTransfer(server)}
+        transfer={transfer}
         subscribeToConnection={subscribeToConnection}
         subscribeToForeground={subscribeToForeground}
       >
@@ -79,7 +82,7 @@ function setup({
     </AccountProvider>
   );
 
-  return { db, server, auth, triggers, app, ui };
+  return { db, server, transfer, auth, triggers, app, ui };
 }
 
 const fromOtherDevice = (text: string) => ({
@@ -93,6 +96,31 @@ const fromOtherDevice = (text: string) => ({
 
 beforeEach(() => jest.useFakeTimers());
 afterEach(() => jest.useRealTimers());
+
+describe("SyncProvider: photo storage", () => {
+  const storageLine =
+    "New photos stay on this phone. Savor's space for your photos is full.";
+
+  it("shows one line on the Account screen while photos wait for space, and none after", async () => {
+    const { db, server, transfer, app, ui } = setup({ owner: ana.userId });
+    transfer.add("w1.jpg");
+    insertMoment(
+      db,
+      { text: "Walk", photos: ["w1.jpg"] },
+      { newId: randomUUID, now: () => 3 },
+    );
+    server.failNext("createUpload", "overQuota", "storage");
+
+    await render(ui(<Account />));
+
+    expect(await screen.findByText(storageLine)).toBeOnTheScreen();
+    expect(app.sync?.photosWaitingForSpace).toBe(true);
+
+    await act(() => app.sync!.syncNow());
+
+    expect(screen.queryByText(storageLine)).not.toBeOnTheScreen();
+  });
+});
 
 describe("SyncProvider", () => {
   it("pushes the phone's moments when the app opens signed in for the first time", async () => {

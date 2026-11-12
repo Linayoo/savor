@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { SyncError } from "@/sync/api";
 import { createTrpcLettersApi, createTrpcSyncApi } from "@/sync/trpc-api";
 
@@ -122,6 +123,35 @@ describe("createTrpcSyncApi", () => {
     await expect(api(fetch).push({ moments: [], photos: [] })).rejects.toEqual(
       new SyncError(kind),
     );
+  });
+
+  it("turns a quota refusal into overQuota, with the quota", async () => {
+    const { fetch } = fakeFetch(() => ({
+      status: 429,
+      body: {
+        error: {
+          message: "Over the storage quota",
+          code: -32029,
+          data: {
+            code: "TOO_MANY_REQUESTS",
+            httpStatus: 429,
+            quota: "storage",
+          },
+        },
+      },
+    }));
+
+    await expect(
+      api(fetch).createUpload({ photoId: randomUUID() }),
+    ).rejects.toMatchObject({ kind: "overQuota", quota: "storage" });
+  });
+
+  it("treats a 429 without a quota, such as API Gateway's throttle, as worth retrying", async () => {
+    const { fetch } = fakeFetch(() => trpcError("TOO_MANY_REQUESTS", 429));
+
+    await expect(
+      api(fetch).push({ moments: [], photos: [] }),
+    ).rejects.toMatchObject({ kind: "unavailable", quota: null });
   });
 
   it("treats API Gateway's own 401 as an ended session", async () => {
