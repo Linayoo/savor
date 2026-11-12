@@ -19,6 +19,7 @@
     "smoke": "tsx scripts/smoke.ts",
     "photo-checks": "tsx scripts/photo-checks.ts",
     "tagging-check": "tsx scripts/tagging-check.ts",
+    "backfill-photo-sizes": "tsx scripts/backfill-photo-sizes.ts",
     "letter-preview": "tsx scripts/letter-preview.ts",
     "seed-moments": "tsx scripts/seed-moments.ts"
   },
