@@ -164,6 +164,40 @@ exiftool photo.jpg
 
 The output should have no GPS lines, no camera make or model, and an image size whose longer side is at most 2048.
 
+## Abuse limits
+
+Each account has quotas the API enforces (spec 009), set in `apps/api/src/quotas.ts`:
+
+- 10 photos per moment, a limit the phone shares
+- 500 new moments and 300 photo uploads per UTC day, counted in `user_quota_usage`
+- 5 GB of confirmed photos, from `moment_photos.size_bytes`
+
+A refusal is `TOO_MANY_REQUESTS` with `data.quota`. Edits and deletes never count.
+
+Photos confirmed before `size_bytes` existed count as nothing until their sizes are filled in. Run this once after the deploy that added the column, with your AWS credentials; running it again changes nothing:
+
+```
+export SAVOR_PHOTOS_BUCKET="$(terraform -chdir=infra/app output -raw photos_bucket)"
+DATABASE_URL="$(aws secretsmanager get-secret-value --secret-id savor/database \
+  --query SecretString --output text | jq -r .migrationUrl)" \
+  pnpm --filter @savor/api backfill-photo-sizes
+```
+
+It prints how many sizes it filled in, and lists any confirmed photo whose file isn't in the bucket.
+
+Elsewhere:
+
+- **Unconfirmed uploads:** the bucket's lifecycle rule expires objects still tagged `upload=pending` after 2 days (`infra/app/photos.tf`). `photo-checks` checks it.
+- **Cost anomalies:** AWS's own monitor and its daily email, imported into `infra/bootstrap/anomaly.tf`, alert at $1 of unexpected cost. The $5 budget alarm stays.
+- **Lambda concurrency:** the account started at 10. `infra/bootstrap/lambda-quota.tf` requests 1,000. To check whether it's granted:
+
+  ```
+  aws service-quotas get-service-quota --service-code lambda \
+    --quota-code L-B99A9384 --region eu-central-1 --query Quota.Value
+  ```
+
+  Once it's 1,000, the API and letters functions get reserved concurrency 10 and 2 in `infra/app`.
+
 ## Monthly letters
 
 Once a month, the letters Lambda writes a letter from each person's moments with Claude on Amazon Bedrock, through an EU inference profile (spec 007, ADR 0007). The model is Terraform's `letter_model_id`: Claude Haiku 4.5 until the account has access to Claude Sonnet 5.5, then `eu.anthropic.claude-sonnet-5-5`. A schedule runs it at 08:00 Zurich time on the 1st, 2nd and 3rd; each run writes only the letters still missing.
