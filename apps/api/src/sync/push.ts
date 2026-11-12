@@ -1,9 +1,10 @@
 import type { MomentChange, PushInput, PushOutput } from "@savor/shared";
 import { TRPCError } from "@trpc/server";
-import { and, eq, inArray, ne, sql, type SQL } from "drizzle-orm";
+import { and, eq, inArray, isNull, ne, sql, type SQL } from "drizzle-orm";
 import type { PgColumn } from "drizzle-orm/pg-core";
 import type { Db } from "../db/client";
 import { momentPhotos, moments, userSyncState } from "../db/schema";
+import { addUsage, LIMITS, quotaExceeded } from "../quotas";
 
 // The incoming value of a column in an upsert
 const excluded = (column: PgColumn) => sql.raw(`excluded."${column.name}"`);
@@ -18,15 +19,19 @@ const upsertWhere = (table: typeof moments | typeof momentPhotos): SQL =>
 const tombstone = (change: MomentChange): MomentChange =>
   change.deletedAt === null ? change : { ...change, text: "", kind: null };
 
-// Stores a batch of changes for one user, all or nothing (spec 003)
+// Stores a batch of changes for one user, all or nothing (spec 003), within
+// the user's quotas (spec 009)
 export function push(
   db: Db,
   userId: string,
   input: PushInput,
+  now = Date.now,
 ): Promise<PushOutput> {
   return db.transaction(async (tx) => {
     let version = await lockVersion(tx, userId);
     await rejectOtherUsersRows(tx, userId, input);
+    const newMoments = await countNewMoments(tx, input);
+    const gainingPhotos = await momentsGainingPhotos(tx, input);
 
     for (const change of input.moments) {
       version += 1;
@@ -65,9 +70,94 @@ export function push(
         });
     }
 
+    await checkPhotosPerMoment(tx, userId, gainingPhotos);
+    if (
+      newMoments > 0 &&
+      (await addUsage(tx, userId, now(), "newMoments", newMoments)) >
+        LIMITS.momentsPerDay
+    ) {
+      throw quotaExceeded("momentsPerDay");
+    }
+
     await saveVersion(tx, userId, version);
     return { version };
   });
+}
+
+// The last change for each id in the push, which is what's stored
+const lastChanges = <T extends { id: string }>(changes: T[]) => [
+  ...new Map(changes.map((c) => [c.id, c])).values(),
+];
+
+// Moments the server hasn't seen that arrive live. Edits, deletes and
+// moments deleted before they arrived don't count toward the daily quota.
+async function countNewMoments(tx: Db, input: PushInput): Promise<number> {
+  const live = lastChanges(input.moments).filter((m) => m.deletedAt === null);
+  if (live.length === 0) return 0;
+  const known = await tx
+    .select({ id: moments.id })
+    .from(moments)
+    .where(
+      inArray(
+        moments.id,
+        live.map((m) => m.id),
+      ),
+    );
+  const knownIds = new Set(known.map((m) => m.id));
+  return live.filter((m) => !knownIds.has(m.id)).length;
+}
+
+// Moments that gain a live photo in this push: a new photo, or one moved from
+// another moment. Only these can go over the limit, so a moment kept with
+// more photos before spec 009 still takes edits and deletes.
+async function momentsGainingPhotos(
+  tx: Db,
+  input: PushInput,
+): Promise<string[]> {
+  const live = lastChanges(input.photos).filter((p) => p.deletedAt === null);
+  if (live.length === 0) return [];
+  const stored = await tx
+    .select({ id: momentPhotos.id, momentId: momentPhotos.momentId })
+    .from(momentPhotos)
+    .where(
+      and(
+        inArray(
+          momentPhotos.id,
+          live.map((p) => p.id),
+        ),
+        isNull(momentPhotos.deletedAt),
+      ),
+    );
+  const storedIn = new Map(stored.map((p) => [p.id, p.momentId]));
+  return [
+    ...new Set(
+      live
+        .filter((p) => storedIn.get(p.id) !== p.momentId)
+        .map((p) => p.momentId),
+    ),
+  ];
+}
+
+async function checkPhotosPerMoment(
+  tx: Db,
+  userId: string,
+  momentIds: string[],
+) {
+  if (momentIds.length === 0) return;
+  const [over] = await tx
+    .select({ momentId: momentPhotos.momentId })
+    .from(momentPhotos)
+    .where(
+      and(
+        eq(momentPhotos.userId, userId),
+        inArray(momentPhotos.momentId, momentIds),
+        isNull(momentPhotos.deletedAt),
+      ),
+    )
+    .groupBy(momentPhotos.momentId)
+    .having(sql`count(*) > ${LIMITS.photosPerMoment}`)
+    .limit(1);
+  if (over) throw quotaExceeded("photosPerMoment");
 }
 
 // Locks the user's version for the rest of the transaction, so concurrent

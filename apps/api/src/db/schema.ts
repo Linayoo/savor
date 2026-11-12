@@ -2,9 +2,11 @@ import type { MomentKind } from "@savor/shared";
 import {
   bigint,
   boolean,
+  date,
   index,
   integer,
   pgTable,
+  primaryKey,
   text,
   unique,
   uuid,
@@ -47,6 +49,18 @@ export const momentPhotos = pgTable(
     uploadedAt: ms("uploaded_at"),
   },
   (t) => [index("moment_photos_user_version_idx").on(t.userId, t.version)],
+);
+
+// What each user used of the daily quotas (spec 009), per UTC day of arrival
+export const userQuotaUsage = pgTable(
+  "user_quota_usage",
+  {
+    userId: text("user_id").notNull(),
+    day: date("day", { mode: "string" }).notNull(),
+    newMoments: integer("new_moments").notNull().default(0),
+    uploads: integer("uploads").notNull().default(0),
+  },
+  (t) => [primaryKey({ columns: [t.userId, t.day] })],
 );
 
 export const userSyncState = pgTable("user_sync_state", {
