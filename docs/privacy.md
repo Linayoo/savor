@@ -1,6 +1,6 @@
 # Savor Privacy Policy
 
-Last updated: 12.11.2026
+Last updated: 25.11.2026
 
 Savor is a private journal. Nothing you keep in it is posted or shown to other people. This page explains what Savor stores, where, who can access it, and how to have it deleted.
 
@@ -43,13 +43,15 @@ If you test Savor through Apple TestFlight, Apple may collect crash reports and 
 
 - Your data is kept for as long as you have an account.
 - When you delete a moment, its words and photos are removed from your account and your other devices. A small record without any content stays, so your other devices learn that it was deleted.
-- When you delete your account, everything is deleted: your sign-in, moments, photos, letters and settings.
+- When you delete your account, everything is deleted: your sign-in, moments, photos, letters and settings. Only a record that the account was deleted stays, for 90 days, as described below.
 
 ## Deleting your account
 
-[Until account deletion is available in the app: Email miri.yoo.dev@gmail.com from the address of your account, and your account and all its data will be deleted within 30 days.]
+In Savor, open the Account screen and choose "Delete account". This permanently deletes your sign-in, moments, photos, letters and settings, on the server and on that phone. Your other devices remove that account's moments from themselves the next time they connect.
 
-[Once available: In Savor, open the Account screen and choose "Delete account". This permanently deletes your sign-in, moments, photos, letters and settings.]
+So that those devices learn about it even if they were offline, Savor keeps a record of the deletion for 90 days after it's done. The record holds only your account's random identifier and two dates, nothing you wrote and no email address. After 90 days it's deleted too.
+
+If you can't use the app, email miri.yoo.dev@gmail.com from the address of your account, and your account and all its data will be deleted within 30 days.
 
 ## Your rights
 

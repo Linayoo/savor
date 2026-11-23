@@ -1,6 +1,6 @@
 # 010: Account deletion
 
-Status: approved
+Status: in progress
 
 ## Problem
 

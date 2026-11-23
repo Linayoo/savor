@@ -198,6 +198,65 @@ Elsewhere:
 
   Once it's 1,000, the API and letters functions get reserved concurrency 10 and 2 in `infra/app`.
 
+## Account deletion
+
+`account.delete` deletes an account in six steps, each safe to repeat (spec 010): it marks the account in `deleted_accounts`, revokes its Cognito sessions, deletes `users/<sub>/` in the photos bucket, deletes its rows, deletes the Cognito user, and notes when it finished. From the mark on, every protected procedure answers `FORBIDDEN` with `data.reason: "ACCOUNT_DELETED"`.
+
+- **The daily job:** at 04:00 Zurich time, `savor-accounts` (`infra/app/accounts.tf`) calls the API function with `{ source: "savor.accounts" }`. It finishes up to 10 deletions that have been open for more than an hour, then removes `deleted_accounts` rows 90 days after their deletion finished.
+- **Logs:** `account_deleted` (counts of objects and rows), `account_delete_failed` (the step and the error's name), and `accounts_cleanup` (finished, failed, removed). They carry the sub, never content.
+- **Public route:** `GET /account.wasDeleted` has no authorizer. It answers only whether an id has a `deleted_accounts` row; a phone whose tokens stopped working asks it about its owner.
+- **A deletion still open:** the daily job retries it. To see which ones, in Neon's SQL editor:
+
+  ```sql
+  select user_id, to_timestamp(deleted_at / 1000) as deleted
+  from deleted_accounts where finished_at is null;
+  ```
+
+To check that a deleted account is gone, first find its sub in Neon's SQL editor, by the time of the deletion:
+
+```sql
+select user_id, to_timestamp(deleted_at / 1000) as deleted,
+       to_timestamp(finished_at / 1000) as finished
+from deleted_accounts order by deleted_at desc;
+```
+
+`finished` is set only after every step ran. Seconds after `deleted`, the phone's call did it all; around 04:00 in Zurich, the daily job finished it; empty, it's still open.
+
+Then, with your AWS credentials and that sub. Not with `None`, which is what a lookup in Cognito prints once the user is gone: every check passes for an account that never existed.
+
+```
+SUB=...
+aws cognito-idp admin-get-user --region eu-central-1 \
+  --user-pool-id "$(terraform -chdir=infra/app output -raw user_pool_id)" \
+  --username "$SUB"
+# UserNotFoundException
+aws s3api list-objects-v2 --region eu-central-1 \
+  --bucket "$(terraform -chdir=infra/app output -raw photos_bucket)" \
+  --prefix "users/$SUB/" --query 'length(Contents || `[]`)' --output text
+# 0. Not --query KeyCount: the CLI drops it when it combines pages, and
+# prints None whether or not files remain
+```
+
+The log lines, in CloudWatch Logs Insights on `/aws/lambda/savor-api` (eu-central-1), with a time range that covers the deletion:
+
+```
+fields @timestamp, @message
+| filter @message like /account_delete|accounts_cleanup/
+| sort @timestamp desc
+```
+
+A file uploaded with a form issued just before the deletion can land after step 3; it stays tagged `upload=pending` and the lifecycle rule removes it within 2–3 days. In Neon's SQL editor, nothing but one `deleted_accounts` row should remain (0 there means the wrong sub):
+
+```sql
+select 'moments', count(*) from moments where user_id = '<sub>'
+union all select 'moment_photos', count(*) from moment_photos where user_id = '<sub>'
+union all select 'letters', count(*) from letters where user_id = '<sub>'
+union all select 'letter_settings', count(*) from letter_settings where user_id = '<sub>'
+union all select 'user_quota_usage', count(*) from user_quota_usage where user_id = '<sub>'
+union all select 'user_sync_state', count(*) from user_sync_state where user_id = '<sub>'
+union all select 'deleted_accounts', count(*) from deleted_accounts where user_id = '<sub>';
+```
+
 ## Monthly letters
 
 Once a month, the letters Lambda writes a letter from each person's moments with Claude on Amazon Bedrock, through an EU inference profile (spec 007, ADR 0007). The model is Terraform's `letter_model_id`: Claude Haiku 4.5 until the account has access to Claude Sonnet 5.5, then `eu.anthropic.claude-sonnet-5-5`. A schedule runs it at 08:00 Zurich time on the 1st, 2nd and 3rd; each run writes only the letters still missing.
