@@ -16,6 +16,8 @@ resource "aws_lambda_function" "api" {
       PHOTOS_BUCKET      = aws_s3_bucket.photos.bucket
       # AWS_REGION is reserved in Lambda
       PHOTOS_BUCKET_REGION = aws_s3_bucket.photos.region
+      # For account deletion (spec 010)
+      COGNITO_USER_POOL_ID = aws_cognito_user_pool.users.id
     }
   }
 
@@ -56,7 +58,8 @@ data "aws_iam_policy_document" "lambda_trust" {
   }
 }
 
-# Its own logs, its own secret and the photos, nothing else. The name
+# Its own logs, its own secret, the photos and deleting accounts, nothing
+# else. The name
 # predates the photos; renaming would replace the policy.
 resource "aws_iam_role_policy" "api" {
   name   = "logs-and-database-secret"
@@ -92,8 +95,20 @@ data "aws_iam_policy_document" "api" {
     resources = ["${aws_s3_bucket.photos.arn}/users/*"]
   }
 
+  # account.delete and the daily job (spec 010), on Savor's user pool only.
+  # Listing and deleting a user's photo folder needs nothing new: the two
+  # statements around this one cover it.
+  statement {
+    sid = "DeleteAccounts"
+    actions = [
+      "cognito-idp:AdminUserGlobalSignOut",
+      "cognito-idp:AdminDeleteUser",
+    ]
+    resources = [aws_cognito_user_pool.users.arn]
+  }
+
   # Lets HeadObject answer 404 for a photo that was never uploaded, instead
-  # of 403
+  # of 403, and account deletion list a user's folder
   statement {
     sid       = "ListPhotoKeys"
     actions   = ["s3:ListBucket"]

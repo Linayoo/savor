@@ -34,6 +34,15 @@ resource "aws_apigatewayv2_route" "health" {
   authorization_type = "NONE"
 }
 
+# A phone whose tokens stopped working asks whether its account was deleted
+# (spec 010); it answers only that
+resource "aws_apigatewayv2_route" "was_deleted" {
+  api_id             = aws_apigatewayv2_api.api.id
+  route_key          = "GET /account.wasDeleted"
+  target             = "integrations/${aws_apigatewayv2_integration.api.id}"
+  authorization_type = "NONE"
+}
+
 # Every other path, including batched calls like /sync.push,sync.pull
 resource "aws_apigatewayv2_route" "default" {
   api_id             = aws_apigatewayv2_api.api.id
