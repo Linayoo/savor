@@ -12,8 +12,11 @@ import {
   pushInputSchema,
   pushOutputSchema,
   setLetterSettingsInputSchema,
+  wasDeletedInputSchema,
+  wasDeletedOutputSchema,
 } from "@savor/shared";
 import { deleteAccount } from "./accounts/delete";
+import { isDeleted } from "./accounts/deleted";
 import { getSettings, listLetters, setSettings } from "./letters/procedures";
 import { deletePushedPhotoFiles } from "./photos/delete-files";
 import { confirmUpload, createUpload, downloadUrls } from "./photos/procedures";
@@ -89,6 +92,15 @@ export const appRouter = router({
           userId: ctx.userId,
         }),
       ),
+    // Public, on its own route without the authorizer (infra/app/api.tf): a
+    // phone whose tokens stopped working asks about its owner. It answers
+    // only whether this id was deleted in the last 90 days.
+    wasDeleted: publicProcedure
+      .input(wasDeletedInputSchema)
+      .output(wasDeletedOutputSchema)
+      .query(async ({ ctx, input }) => ({
+        deleted: await isDeleted(ctx.db, input.userId),
+      })),
   }),
 });
 
