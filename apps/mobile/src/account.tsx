@@ -69,6 +69,10 @@ type AccountContextValue = {
   // Deletes the account on the server, then clears it from this phone
   // (spec 010). Rejects when it failed; trying again continues it.
   deleteAccount: () => Promise<void>;
+  // Signed out, after the ownership refusal: clears the other account's
+  // moments from this phone only, so another account can claim it (spec
+  // 010, behavior 9)
+  removeOtherAccountData: () => void;
   // For sync, on ACCOUNT_DELETED: clears the account from this phone
   accountDeleted: () => Promise<void>;
   // For sync: called before signing out, and returns how to undo it if the
@@ -205,6 +209,14 @@ export function AccountProvider({
 
   const accountDeleted = () => clearDeletedAccount("elsewhere");
 
+  const removeOtherAccountData = () => {
+    if (account.status !== "signedOut") {
+      throw new Error("Only signed out, after the ownership refusal");
+    }
+    clearAccountData(db, deleteFiles);
+    clearedListeners.current.forEach((listener) => listener());
+  };
+
   const deleteAccount = async () => {
     if (!accountApi) throw new Error("Account deletion isn't available");
     // Syncing stops first, as for signing out, so no push lands meanwhile
@@ -241,6 +253,7 @@ export function AccountProvider({
         signOut,
         endSession,
         deleteAccount,
+        removeOtherAccountData,
         accountDeleted,
         onSignOut,
         onCleared,

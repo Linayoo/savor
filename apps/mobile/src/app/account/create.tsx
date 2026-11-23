@@ -10,6 +10,7 @@ import {
   TextLink,
   useAuthForm,
 } from "@/components/account-form";
+import { RemoveOtherAccount } from "@/components/remove-other-account";
 
 export default function CreateAccount() {
   const { signUp, confirmSignUp, resendSignUpCode } = useAccount();
@@ -17,7 +18,7 @@ export default function CreateAccount() {
   const [password, setPassword] = useState("");
   const [code, setCode] = useState("");
   const [step, setStep] = useState<"details" | "code">("details");
-  const { errors, busy, submit } = useAuthForm();
+  const { errors, busy, submit, clearErrors } = useAuthForm();
 
   const create = () =>
     submit(
@@ -50,6 +51,7 @@ export default function CreateAccount() {
         intro={`We sent a 6-digit code to ${email.trim()}.`}
       >
         <FormError message={errors.form} />
+        <RemoveOtherAccount formError={errors.form} onRemoved={clearErrors} />
         <Field
           name="code"
           label="Code"
@@ -77,6 +79,7 @@ export default function CreateAccount() {
       intro="Keep your moments safe and on all your devices."
     >
       <FormError message={errors.form} />
+      <RemoveOtherAccount formError={errors.form} onRemoved={clearErrors} />
       <Field
         name="email"
         label="Email"

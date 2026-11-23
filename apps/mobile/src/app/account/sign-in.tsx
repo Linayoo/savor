@@ -11,6 +11,7 @@ import {
   TextLink,
   useAuthForm,
 } from "@/components/account-form";
+import { RemoveOtherAccount } from "@/components/remove-other-account";
 
 export default function SignIn() {
   const params = useLocalSearchParams<{ email?: string; notice?: string }>();
@@ -19,7 +20,7 @@ export default function SignIn() {
   const [password, setPassword] = useState("");
   const [code, setCode] = useState("");
   const [step, setStep] = useState<"details" | "code">("details");
-  const { errors, busy, submit } = useAuthForm();
+  const { errors, busy, submit, clearErrors } = useAuthForm();
 
   const signInNow = () =>
     submit(
@@ -59,6 +60,7 @@ export default function SignIn() {
         intro={`Your account isn't confirmed yet. We sent a 6-digit code to ${email.trim()}.`}
       >
         <FormError message={errors.form} />
+        <RemoveOtherAccount formError={errors.form} onRemoved={clearErrors} />
         <Field
           name="code"
           label="Code"
@@ -81,6 +83,7 @@ export default function SignIn() {
         <Notice>Your password is changed. Sign in with it.</Notice>
       ) : null}
       <FormError message={errors.form} />
+      <RemoveOtherAccount formError={errors.form} onRemoved={clearErrors} />
       <Field
         name="email"
         label="Email"

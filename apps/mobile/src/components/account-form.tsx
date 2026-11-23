@@ -65,7 +65,9 @@ export function useAuthForm() {
       }
     });
 
-  return { errors, busy, submit };
+  const clearErrors = () => setErrors({});
+
+  return { errors, busy, submit, clearErrors };
 }
 
 export function FormScreen({
