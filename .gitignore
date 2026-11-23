@@ -11,3 +11,6 @@ dist/
 terraform.tfvars
 # Saved plans can contain secrets
 tfplan
+
+# Expo CLI writes an empty one when run from the repo root; the app is apps/mobile
+/app.json
