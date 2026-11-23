@@ -1,6 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { SyncError } from "@/sync/api";
-import { createTrpcLettersApi, createTrpcSyncApi } from "@/sync/trpc-api";
+import {
+  createTrpcAccountApi,
+  createTrpcLettersApi,
+  createTrpcSyncApi,
+} from "@/sync/trpc-api";
 
 type Call = { url: string; method: string; headers: Headers; body?: string };
 
@@ -146,6 +150,35 @@ describe("createTrpcSyncApi", () => {
     ).rejects.toMatchObject({ kind: "overQuota", quota: "storage" });
   });
 
+  it("turns a deleted account's refusal into accountDeleted", async () => {
+    const { fetch } = fakeFetch(() => ({
+      status: 403,
+      body: {
+        error: {
+          message: "This account was deleted",
+          code: -32003,
+          data: {
+            code: "FORBIDDEN",
+            httpStatus: 403,
+            reason: "ACCOUNT_DELETED",
+          },
+        },
+      },
+    }));
+
+    await expect(
+      api(fetch).pull({ sinceVersion: 0, limit: 200 }),
+    ).rejects.toEqual(new SyncError("accountDeleted"));
+  });
+
+  it("treats a FORBIDDEN without that reason as worth retrying", async () => {
+    const { fetch } = fakeFetch(() => trpcError("FORBIDDEN", 403));
+
+    await expect(
+      api(fetch).pull({ sinceVersion: 0, limit: 200 }),
+    ).rejects.toEqual(new SyncError("unavailable"));
+  });
+
   it("treats a 429 without a quota, such as API Gateway's throttle, as worth retrying", async () => {
     const { fetch } = fakeFetch(() => trpcError("TOO_MANY_REQUESTS", 429));
 
@@ -262,6 +295,61 @@ describe("createTrpcLettersApi", () => {
     const { fetch } = fakeFetch(() => ({ status: 502, body: {} }));
 
     await expect(lettersApi(fetch).list()).rejects.toEqual(
+      new SyncError("unavailable"),
+    );
+  });
+});
+
+describe("createTrpcAccountApi", () => {
+  const accountApi = (
+    fetch: typeof globalThis.fetch,
+    getToken = jest.fn(async () => "token-a"),
+  ) => ({
+    getToken,
+    api: createTrpcAccountApi({
+      url: "https://api.example.com/",
+      getToken,
+      fetch,
+    }),
+  });
+
+  it("deletes the account with the token, as a POST", async () => {
+    const { calls, fetch } = fakeFetch(() => ({
+      status: 200,
+      body: { result: { data: { deleted: true } } },
+    }));
+
+    await accountApi(fetch).api.deleteAccount();
+
+    expect(calls[0]).toMatchObject({
+      url: "https://api.example.com/account.delete",
+      method: "POST",
+    });
+    expect(calls[0].headers.get("authorization")).toBe("Bearer token-a");
+  });
+
+  it("asks whether an account was deleted without a token", async () => {
+    const { calls, fetch } = fakeFetch(() => ({
+      status: 200,
+      body: { result: { data: { deleted: true } } },
+    }));
+    const { api: client, getToken } = accountApi(fetch);
+
+    expect(await client.wasDeleted("sub-ana")).toBe(true);
+
+    expect(calls[0].method).toBe("GET");
+    expect(new URL(calls[0].url).pathname).toBe("/account.wasDeleted");
+    expect(
+      JSON.parse(new URL(calls[0].url).searchParams.get("input")!),
+    ).toEqual({ userId: "sub-ana" });
+    expect(calls[0].headers.get("authorization")).toBeNull();
+    expect(getToken).not.toHaveBeenCalled();
+  });
+
+  it("fails with the same errors as sync", async () => {
+    const { fetch } = fakeFetch(() => trpcError("INTERNAL_SERVER_ERROR", 500));
+
+    await expect(accountApi(fetch).api.wasDeleted("sub-ana")).rejects.toEqual(
       new SyncError("unavailable"),
     );
   });

@@ -22,6 +22,7 @@ import {
   View,
 } from "react-native";
 import { MAX_PHOTOS_PER_MOMENT } from "@savor/shared";
+import { useAccountDeleted } from "@/account";
 import { KindChips } from "@/components/kind-chips";
 import { kindIcon, momentLine, type MomentKind } from "@/kinds";
 import { photoUri, useMoments, type Moment } from "../../moments";
@@ -34,6 +35,12 @@ type DraftPhoto = { uri: string; assetId: string | null };
 // The iOS bar above the keyboard with a single Done
 const doneBarId = "moment-done-bar";
 
+// After an account was deleted and cleared from this phone (spec 010)
+const deletedLine = {
+  here: "Your account and moments were deleted.",
+  elsewhere: "This account was deleted.",
+};
+
 export default function Index() {
   const { moments, addMoment, updateMoment, deleteMoment } = useMoments();
   const [draft, setDraft] = useState("");
@@ -43,6 +50,7 @@ export default function Index() {
   const inputRef = useRef<TextInputInstance>(null);
   const timelineRef = useRef<FlatList<Moment>>(null);
   const sync = useSync();
+  const deleted = useAccountDeleted();
   const [refreshing, setRefreshing] = useState(false);
 
   const refresh = async () => {
@@ -205,6 +213,9 @@ export default function Index() {
           </Pressable>
         </View>
         <Text style={styles.tagline}>Notice what makes you feel alive.</Text>
+        {deleted ? (
+          <Text style={styles.deletedLine}>{deletedLine[deleted]}</Text>
+        ) : null}
       </Pressable>
 
       <Pressable
@@ -392,6 +403,13 @@ const styles = StyleSheet.create({
     minHeight: 60,
     maxHeight: 140,
     flexShrink: 1,
+  },
+  deletedLine: {
+    fontFamily: fonts.serifItalic,
+    fontSize: 15,
+    color: "#6B6158",
+    marginTop: -8,
+    marginBottom: 16,
   },
   thumbRow: { marginTop: 12 },
   thumb: { width: 64, height: 64, borderRadius: 8, marginRight: 6 },

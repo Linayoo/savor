@@ -27,13 +27,16 @@ export interface SyncApi {
 //   the photo queues handle it, it never fails a sync
 // - overQuota: the server refused for one of the account's quotas
 //   (TOO_MANY_REQUESTS with a quota, spec 009); nothing is lost, it waits
+// - accountDeleted: the account was deleted, on this phone or another
+//   (FORBIDDEN with the reason ACCOUNT_DELETED, spec 010)
 export type SyncErrorKind =
   | "conflict"
   | "rejected"
   | "unauthorized"
   | "unavailable"
   | "notFound"
-  | "overQuota";
+  | "overQuota"
+  | "accountDeleted";
 
 export class SyncError extends Error {
   constructor(

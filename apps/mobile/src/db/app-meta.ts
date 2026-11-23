@@ -36,6 +36,11 @@ const codecs: {
   },
 };
 
+// Every key above. All of them describe the phone's account and its sync,
+// so clearing a deleted account removes them (clear-account.ts); other rows,
+// like the import marker, stay.
+export const META_KEYS = Object.keys(codecs) as (keyof Meta)[];
+
 export function getMeta<K extends keyof Meta>(db: AppDb, key: K): Meta[K] {
   const row = db.select().from(appMeta).where(eq(appMeta.key, key)).get();
   return codecs[key].read(row?.value ?? null);

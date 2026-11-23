@@ -81,7 +81,8 @@ export function SyncProvider({
   subscribeToForeground?: (onActive: () => void) => Unsubscribe;
   children: ReactNode;
 }) {
-  const { account, endSession, onSignOut } = useAccount();
+  const { account, endSession, accountDeleted, onSignOut, onCleared } =
+    useAccount();
   const userId = account.status === "signedIn" ? account.session.userId : null;
   const [engine, setEngine] = useState<SyncEngine | null>(null);
   const [status, setStatus] = useState<SyncStatus | null>(null);
@@ -98,9 +99,20 @@ export function SyncProvider({
   // signed-in account only
   const deps = useRef({ createApi, deleteFiles, transfer });
   const endSessionRef = useRef(endSession);
+  const accountDeletedRef = useRef(accountDeleted);
   useEffect(() => {
     endSessionRef.current = endSession;
+    accountDeletedRef.current = accountDeleted;
   });
+
+  // The moments were cleared from this phone (spec 010): the screens reload
+  useEffect(
+    () =>
+      onCleared(() =>
+        changeListeners.current.forEach((listener) => listener()),
+      ),
+    [onCleared],
+  );
 
   useEffect(() => {
     if (!userId) return;
@@ -120,6 +132,14 @@ export function SyncProvider({
       ) {
         next.stop();
         void endSessionRef.current();
+      }
+      // Deleted on another device: cleared from this one too (spec 010)
+      if (
+        nextStatus.phase === "stopped" &&
+        nextStatus.problem === "accountDeleted"
+      ) {
+        next.stop();
+        void accountDeletedRef.current();
       }
     });
     const offSignOut = onSignOut(() => {

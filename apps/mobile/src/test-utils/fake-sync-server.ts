@@ -13,6 +13,7 @@ import {
   type CreateUploadOutput,
   type Quota,
 } from "@savor/shared";
+import type { AccountApi } from "@/account-api";
 import type { LettersApi } from "@/letters/api";
 import { SyncError, type SyncApi, type SyncErrorKind } from "@/sync/api";
 
@@ -28,7 +29,9 @@ type Method =
   | "download"
   | "listLetters"
   | "getLetterSettings"
-  | "setLetterSettings";
+  | "setLetterSettings"
+  | "deleteAccount"
+  | "wasDeleted";
 
 const DOWNLOAD_URL = "https://fake-s3.test/download/";
 
@@ -55,6 +58,8 @@ export class FakeSyncServer {
   private letterSettings = new Map<string, LetterSettings>();
   private listHold: { started: () => void; released: Promise<void> } | null =
     null;
+  // Accounts deleted with account.delete (spec 010)
+  private deletedAccounts = new Set<string>();
 
   // Every push the server received, accepted or not
   readonly pushes: { userId: string; input: PushInput }[] = [];
@@ -63,24 +68,73 @@ export class FakeSyncServer {
   // The photos bucket, by key
   readonly objects = new Map<string, string>();
 
-  // A client signed in as userId
+  // A client signed in as userId. Once the account is deleted, every call
+  // is refused, as the API's protected procedures do.
   api(userId: string): SyncApi {
+    const guard = this.guard(userId);
     return {
-      push: (input) => this.push(userId, input),
-      pull: (input) => this.pull(userId, input),
-      createUpload: (input) => this.createUpload(userId, input.photoId),
-      confirmUpload: (input) => this.confirmUpload(userId, input.photoId),
-      downloadUrls: (input) => this.downloadUrls(userId, input.photoIds),
+      push: guard((input) => this.push(userId, input)),
+      pull: guard((input) => this.pull(userId, input)),
+      createUpload: guard((input) => this.createUpload(userId, input.photoId)),
+      confirmUpload: guard((input) =>
+        this.confirmUpload(userId, input.photoId),
+      ),
+      downloadUrls: guard((input) => this.downloadUrls(userId, input.photoIds)),
     };
   }
 
   // A letters client signed in as userId
   lettersApi(userId: string): LettersApi {
+    const guard = this.guard(userId);
     return {
-      list: () => this.listLetters(userId),
-      getSettings: () => this.getLetterSettings(userId),
-      setSettings: (input) => this.setLetterSettings(userId, input),
+      list: guard(() => this.listLetters(userId)),
+      getSettings: guard(() => this.getLetterSettings(userId)),
+      setSettings: guard((input) => this.setLetterSettings(userId, input)),
     };
+  }
+
+  // Account deletion signed in as userId; wasDeleted needs no sign-in
+  accountApi(userId: string): AccountApi {
+    return {
+      deleteAccount: async () => {
+        await Promise.resolve();
+        this.takeFault("deleteAccount");
+        this.deleteAccount(userId);
+      },
+      wasDeleted: async (id) => {
+        await Promise.resolve();
+        this.takeFault("wasDeleted");
+        return this.deletedAccounts.has(id);
+      },
+    };
+  }
+
+  // What account.delete does on the server, from any device
+  deleteAccount(userId: string) {
+    this.deletedAccounts.add(userId);
+    for (const [id, m] of this.moments) {
+      if (m.userId === userId) this.moments.delete(id);
+    }
+    for (const [id, p] of this.photos) {
+      if (p.userId === userId) this.photos.delete(id);
+    }
+    for (const key of this.objects.keys()) {
+      if (key.startsWith(`users/${userId}/`)) this.objects.delete(key);
+    }
+    this.letters.delete(userId);
+    this.letterSettings.delete(userId);
+    this.versions.delete(userId);
+  }
+
+  private guard(userId: string) {
+    return <A extends unknown[], R>(call: (...args: A) => Promise<R>) =>
+      async (...args: A): Promise<R> => {
+        if (this.deletedAccounts.has(userId)) {
+          await Promise.resolve();
+          throw new SyncError("accountDeleted");
+        }
+        return call(...args);
+      };
   }
 
   // As the letters job does

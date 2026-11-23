@@ -19,7 +19,11 @@ import { LettersProvider } from "../letters/provider";
 import { MomentsProvider } from "../moments";
 import { deletePhotoFiles, photoTransfer } from "../photos";
 import { SyncProvider } from "../sync-provider";
-import { createTrpcLettersApi, createTrpcSyncApi } from "../sync/trpc-api";
+import {
+  createTrpcAccountApi,
+  createTrpcLettersApi,
+  createTrpcSyncApi,
+} from "../sync/trpc-api";
 
 // Created once someone signs in, so the app works without config or network
 const createApi = () =>
@@ -29,6 +33,22 @@ const createLettersApi = () =>
     url: appConfig().apiUrl,
     getToken: auth.getAccessToken,
   });
+
+// Account deletion (spec 010). wasDeleted goes without a token, so this
+// works signed out too; it's created on first use, as the config may be
+// missing in development.
+let accountApi: ReturnType<typeof createTrpcAccountApi> | undefined;
+const lazyAccountApi = {
+  deleteAccount: () => getAccountApi().deleteAccount(),
+  wasDeleted: (userId: string) => getAccountApi().wasDeleted(userId),
+};
+function getAccountApi() {
+  accountApi ??= createTrpcAccountApi({
+    url: appConfig().apiUrl,
+    getToken: auth.getAccessToken,
+  });
+  return accountApi;
+}
 
 export default function RootLayout() {
   const [fontsLoaded] = useFonts({
@@ -44,7 +64,12 @@ export default function RootLayout() {
   return (
     <DatabaseGate>
       <FreshInstallGate>
-        <AccountProvider db={db} auth={auth}>
+        <AccountProvider
+          db={db}
+          auth={auth}
+          accountApi={lazyAccountApi}
+          deleteFiles={deletePhotoFiles}
+        >
           <SyncProvider
             db={db}
             createApi={createApi}

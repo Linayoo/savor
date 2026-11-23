@@ -1,13 +1,15 @@
 import type { AppRouter } from "@savor/api/router";
 import { QUOTAS, type Quota } from "@savor/shared";
 import { createTRPCClient, httpLink, TRPCClientError } from "@trpc/client";
+import type { AccountApi } from "../account-api";
 import type { LettersApi } from "../letters/api";
 import { SyncError, type SyncApi, type SyncErrorKind } from "./api";
 
 type ClientOptions = {
   url: string;
-  // Throws a SyncError when there is no valid session
-  getToken: () => Promise<string>;
+  // Throws a SyncError when there is no valid session; null for a public
+  // procedure, which goes without a token
+  getToken: (() => Promise<string>) | null;
   fetch?: typeof globalThis.fetch;
 };
 
@@ -21,7 +23,7 @@ function createCaller({ url, getToken, fetch }: ClientOptions) {
       httpLink({
         url: url.replace(/\/$/, ""),
         fetch,
-        headers: () => ({ authorization: `Bearer ${token}` }),
+        headers: () => (token ? { authorization: `Bearer ${token}` } : {}),
       }),
     ],
   });
@@ -29,7 +31,7 @@ function createCaller({ url, getToken, fetch }: ClientOptions) {
   const call = async <T>(
     request: (trpc: typeof client) => Promise<T>,
   ): Promise<T> => {
-    token = await getToken();
+    token = getToken ? await getToken() : "";
     try {
       return await request(client);
     } catch (error) {
@@ -65,6 +67,21 @@ export function createTrpcLettersApi(options: ClientOptions): LettersApi {
   };
 }
 
+// Account deletion (spec 010). wasDeleted needs no token: it's for a phone
+// whose tokens stopped working.
+export function createTrpcAccountApi(options: ClientOptions): AccountApi {
+  const call = createCaller(options);
+  const publicCall = createCaller({ ...options, getToken: null });
+  return {
+    deleteAccount: async () => {
+      await call((trpc) => trpc.account.delete.mutate());
+    },
+    wasDeleted: async (userId) =>
+      (await publicCall((trpc) => trpc.account.wasDeleted.query({ userId })))
+        .deleted,
+  };
+}
+
 const kindByCode: Partial<Record<string, SyncErrorKind>> = {
   CONFLICT: "conflict",
   BAD_REQUEST: "rejected",
@@ -77,6 +94,9 @@ function toSyncError(error: unknown): SyncError {
   const code: string | undefined = error.data?.code;
   if (code && kindByCode[code]) return new SyncError(kindByCode[code]!);
   // A quota refusal names its quota; API Gateway's own throttle doesn't
+  if (code === "FORBIDDEN" && error.data?.reason === "ACCOUNT_DELETED") {
+    return new SyncError("accountDeleted");
+  }
   const quota: unknown = error.data?.quota;
   if (code === "TOO_MANY_REQUESTS" && isQuota(quota)) {
     return new SyncError("overQuota", "overQuota", quota);
