@@ -7,7 +7,7 @@ import {
 import { eq } from "drizzle-orm";
 import { router } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
-import { ActionSheetIOS, FlatList, Keyboard } from "react-native";
+import { ActionSheetIOS, FlatList, Keyboard, StyleSheet } from "react-native";
 import Index from "@/app/(tabs)/index";
 import { listMoments } from "@/db/moments-store";
 import { momentPhotos } from "@/db/schema";
@@ -65,6 +65,13 @@ beforeEach(() => {
 });
 
 const input = () => screen.getByPlaceholderText("What moved you just now?");
+// The nativeID of the InputAccessoryView around a view, which the text field
+// names to show it above the keyboard
+function accessoryIdOf(view: ReturnType<typeof screen.getByTestId>) {
+  let node = view.parent;
+  while (node && !node.props.nativeID) node = node.parent;
+  return node?.props.nativeID;
+}
 const chip = (name: string) => screen.getByRole("button", { name });
 
 describe("Moments screen: keeping a moment", () => {
@@ -101,6 +108,51 @@ describe("Moments screen: keeping a moment", () => {
 
     expect(dismissKeyboard).not.toHaveBeenCalled();
     expect(scrollTimeline).not.toHaveBeenCalled();
+  });
+});
+
+describe("Moments screen: the keyboard", () => {
+  it("caps the text field's height, so long text scrolls inside it", async () => {
+    await renderScreen();
+
+    expect(
+      StyleSheet.flatten(input().props.style).maxHeight,
+    ).toBeLessThanOrEqual(160);
+  });
+
+  it("closes the keyboard on a tap in the card's empty space or the header", async () => {
+    const user = await renderScreen();
+
+    await user.press(screen.getByTestId("card"));
+    expect(dismissKeyboard).toHaveBeenCalledTimes(1);
+    await user.press(screen.getByText("Savor"));
+    expect(dismissKeyboard).toHaveBeenCalledTimes(2);
+  });
+
+  it("keeps the keyboard open when a chip is tapped", async () => {
+    const user = await renderScreen();
+
+    await user.press(chip("Meal"));
+
+    expect(dismissKeyboard).not.toHaveBeenCalled();
+  });
+
+  it("closes the keyboard when the timeline is dragged", async () => {
+    await renderScreen([oldMoment]);
+
+    expect(screen.getByTestId("timeline").props.keyboardDismissMode).toBe(
+      "on-drag",
+    );
+  });
+
+  it("shows a Done bar above the keyboard on iOS, which closes it", async () => {
+    const user = await renderScreen();
+
+    const bar = screen.getByTestId("done-bar");
+    expect(input().props.inputAccessoryViewID).toBe(accessoryIdOf(bar));
+    await user.press(within(bar).getByRole("button", { name: "Done" }));
+
+    expect(dismissKeyboard).toHaveBeenCalled();
   });
 });
 
@@ -336,6 +388,18 @@ describe("Moments screen: editing a moment", () => {
     expect(await list.findByText("Thu 1 Oct")).toBeOnTheScreen();
     expect(list.getByTestId("icon-sparkles-outline")).toBeOnTheScreen();
     expect(listMoments(db)[0]).not.toHaveProperty("kind");
+  });
+
+  it("offers the same Done bar while editing", async () => {
+    await renderScreen([oldMoment]);
+    const user = await startEditing("Rain on the window");
+
+    const bar = screen.getByTestId("done-bar");
+    expect(input().props.inputAccessoryViewID).toBe(accessoryIdOf(bar));
+    await user.press(within(bar).getByRole("button", { name: "Done" }));
+
+    expect(dismissKeyboard).toHaveBeenCalled();
+    expect(screen.getByText("Save")).toBeOnTheScreen();
   });
 
   it("restores an empty card with no kind on Cancel", async () => {

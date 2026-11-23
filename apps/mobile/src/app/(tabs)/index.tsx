@@ -8,7 +8,9 @@ import {
   Alert,
   FlatList,
   Image,
+  InputAccessoryView,
   Keyboard,
+  KeyboardAvoidingView,
   Platform,
   Pressable,
   RefreshControl,
@@ -28,6 +30,9 @@ import { useSync } from "../../sync-provider";
 // A photo waiting in the card. Library photos carry the picker's asset id,
 // so picking one again doesn't add it twice; camera photos have none.
 type DraftPhoto = { uri: string; assetId: string | null };
+
+// The iOS bar above the keyboard with a single Done
+const doneBarId = "moment-done-bar";
 
 export default function Index() {
   const { moments, addMoment, updateMoment, deleteMoment } = useMoments();
@@ -181,21 +186,33 @@ export default function Index() {
   };
 
   return (
-    <View style={styles.screen}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Savor</Text>
-        <Pressable
-          onPress={() => router.push("/account")}
-          style={styles.accountButton}
-          accessibilityRole="button"
-          accessibilityLabel="Account"
-        >
-          <Ionicons name="person-circle-outline" size={26} color="#6B6158" />
-        </Pressable>
-      </View>
-      <Text style={styles.tagline}>Notice what makes you feel alive.</Text>
+    // Keeps the card above the keyboard; the timeline gives up its space
+    // first, then the text field shrinks (#3)
+    <KeyboardAvoidingView
+      style={styles.screen}
+      behavior={Platform.OS === "ios" ? "padding" : undefined}
+    >
+      <Pressable onPress={Keyboard.dismiss} accessible={false}>
+        <View style={styles.header}>
+          <Text style={styles.title}>Savor</Text>
+          <Pressable
+            onPress={() => router.push("/account")}
+            style={styles.accountButton}
+            accessibilityRole="button"
+            accessibilityLabel="Account"
+          >
+            <Ionicons name="person-circle-outline" size={26} color="#6B6158" />
+          </Pressable>
+        </View>
+        <Text style={styles.tagline}>Notice what makes you feel alive.</Text>
+      </Pressable>
 
-      <View style={styles.card}>
+      <Pressable
+        testID="card"
+        onPress={Keyboard.dismiss}
+        accessible={false}
+        style={styles.card}
+      >
         <TextInput
           ref={inputRef}
           value={draft}
@@ -203,6 +220,7 @@ export default function Index() {
           placeholder="What moved you just now?"
           placeholderTextColor="#7A6F64"
           multiline
+          inputAccessoryViewID={doneBarId}
           style={styles.input}
         />
 
@@ -249,13 +267,15 @@ export default function Index() {
             <Text style={styles.buttonText}>{editingId ? "Save" : "Keep"}</Text>
           </Pressable>
         </View>
-      </View>
+      </Pressable>
 
       <FlatList
         ref={timelineRef}
         data={moments}
         keyExtractor={(m) => m.id}
         testID="timeline"
+        style={styles.timeline}
+        keyboardDismissMode="on-drag"
         refreshControl={
           sync.status ? (
             <RefreshControl
@@ -310,7 +330,21 @@ export default function Index() {
           </Pressable>
         )}
       />
-    </View>
+
+      {Platform.OS === "ios" && (
+        <InputAccessoryView nativeID={doneBarId}>
+          <View testID="done-bar" style={styles.doneBar}>
+            <Pressable
+              onPress={Keyboard.dismiss}
+              style={styles.doneButton}
+              accessibilityRole="button"
+            >
+              <Text style={styles.doneText}>Done</Text>
+            </Pressable>
+          </View>
+        </InputAccessoryView>
+      )}
+    </KeyboardAvoidingView>
   );
 }
 
@@ -348,12 +382,16 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 16,
     marginBottom: 16,
+    flexShrink: 1,
   },
+  // About five lines, then the text scrolls inside the field
   input: {
     fontFamily: fonts.serif,
     fontSize: 18,
     color: "#2B2622",
     minHeight: 60,
+    maxHeight: 140,
+    flexShrink: 1,
   },
   thumbRow: { marginTop: 12 },
   thumb: { width: 64, height: 64, borderRadius: 8, marginRight: 6 },
@@ -386,6 +424,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 22,
   },
   disabled: { opacity: 0.4 },
+  timeline: { flex: 1 },
+  doneBar: {
+    flexDirection: "row",
+    justifyContent: "flex-end",
+    backgroundColor: "#FFFCF6",
+    borderTopColor: "#E6DCCB",
+    borderTopWidth: 1,
+  },
+  doneButton: { height: 44, justifyContent: "center", paddingHorizontal: 20 },
+  doneText: { fontFamily: fonts.bodyMedium, fontSize: 16, color: "#A5532F" },
   buttonText: { fontFamily: fonts.bodyMedium, color: "#FFFCF6", fontSize: 15 },
   moment: {
     flexDirection: "row",

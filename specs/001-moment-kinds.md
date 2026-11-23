@@ -17,6 +17,7 @@ All moments look the same in the timeline, so a meal, a film and a walk are hard
 7. The long-press menu option "Edit words" is renamed "Edit moment". Editing loads the moment's text and kind into the card, and Save updates both. Cancel restores an empty card with no kind selected.
 8. The full-screen photo viewer shows the same "Kind · date" line in its caption.
 9. Moments kept before this feature have no kind and keep working unchanged.
+10. The card stays above the keyboard while typing, when keeping or editing a moment. The text field grows to about five lines, then the text scrolls inside it, so Keep or Save stays visible. Tapping outside the field, dragging the timeline, or tapping Done on the bar above the iOS keyboard closes the keyboard (added after TestFlight, #3).
 
 ## Kinds
 
@@ -70,6 +71,9 @@ None. Moments are still stored only on the phone.
 - [x] Given I edit a moment and pick Book, when I tap Save, then the moment shows the book icon and "Book · <date>", with its text and photos unchanged.
 - [x] Given I edit a moment that has a kind and unselect it, when I tap Save, then the moment has no kind.
 - [x] Given a moment with a kind, when I open one of its photos, then the viewer caption shows "Kind · <date>".
+- [x] Given a long moment in the card, then the text field stops growing at about five lines and the text scrolls inside it.
+- [x] Given the keyboard is open, when I tap the card's empty space or the header, drag the timeline, or tap Done on the iOS bar, then the keyboard closes; tapping a chip leaves it open. The same holds while editing.
+- [x] Given the on-screen keyboard is open on a small and a regular iPhone, with and without draft photos, then the card, the line being typed and Keep (or Save) stay visible above it, with no gap below the card.
 - [x] Unit tests cover the kinds helpers and the context's add and update behavior with and without a kind.
 - [x] A component test covers chip select, unselect and switch.
 - [x] `pnpm typecheck`, `pnpm lint` and `pnpm test` pass, with jest-expo replacing the "no tests yet" placeholder.
