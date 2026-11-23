@@ -143,6 +143,21 @@ export async function getAccessToken(): Promise<string> {
   return token;
 }
 
+// Before deleting the account (spec 010): fresh tokens, so retries have the
+// full hour of an access token even after the first attempt revoked the
+// refresh token
+export async function refreshSession(): Promise<void> {
+  configureAuth();
+  let session: Awaited<ReturnType<typeof amplify.fetchAuthSession>>;
+  try {
+    session = await amplify.fetchAuthSession({ forceRefresh: true });
+  } catch (error) {
+    if (__DEV__) logAuthError("forced token refresh failed", error);
+    throw new SyncError("unavailable");
+  }
+  if (!session.tokens?.accessToken) throw new SyncError("unauthorized");
+}
+
 async function signedInSession(): Promise<Session> {
   const session = await currentSession();
   if (!session) throw new Error("Signed in, but no user is stored");

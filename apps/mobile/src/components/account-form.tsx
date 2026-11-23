@@ -99,7 +99,8 @@ export function Field({
   error,
   ...input
 }: TextInputProps & {
-  name: AuthField;
+  // For the test id; auth fields match their errors
+  name: AuthField | "confirmation";
   label: string;
   hint?: string;
   error?: string;
@@ -140,18 +141,25 @@ export function PrimaryButton({
   label,
   onPress,
   busy = false,
+  disabled = false,
 }: {
   label: string;
   onPress: () => void;
   busy?: boolean;
+  disabled?: boolean;
 }) {
   return (
     <Pressable
       onPress={onPress}
-      disabled={busy}
+      disabled={busy || disabled}
       accessibilityRole="button"
-      accessibilityState={{ busy, disabled: busy }}
-      style={[styles.button, busy ? styles.buttonBusy : null]}
+      accessibilityLabel={label}
+      accessibilityState={{ busy, disabled: busy || disabled }}
+      style={[
+        styles.button,
+        busy ? styles.buttonBusy : null,
+        disabled ? styles.buttonDisabled : null,
+      ]}
     >
       {busy ? (
         <ActivityIndicator color="#FFFCF6" />
@@ -162,14 +170,18 @@ export function PrimaryButton({
   );
 }
 
+// destructive: quiet, but in a warning red, for actions like deleting the
+// account
 export function TextLink({
   label,
   onPress,
   disabled = false,
+  destructive = false,
 }: {
   label: string;
   onPress: () => void;
   disabled?: boolean;
+  destructive?: boolean;
 }) {
   return (
     <Pressable
@@ -179,7 +191,11 @@ export function TextLink({
       accessibilityState={{ disabled }}
       style={[styles.link, disabled ? styles.linkDisabled : null]}
     >
-      <Text style={styles.linkText}>{label}</Text>
+      <Text
+        style={[styles.linkText, destructive ? styles.linkDestructive : null]}
+      >
+        {label}
+      </Text>
     </Pressable>
   );
 }
@@ -249,8 +265,10 @@ const styles = StyleSheet.create({
     marginTop: 6,
   },
   buttonBusy: { opacity: 0.7 },
+  buttonDisabled: { opacity: 0.4 },
   buttonText: { fontFamily: fonts.bodyMedium, color: "#FFFCF6", fontSize: 15 },
   link: { alignSelf: "center", paddingVertical: 14, paddingHorizontal: 8 },
   linkDisabled: { opacity: 0.5 },
+  linkDestructive: { color: "#9A3B2E" },
   linkText: { fontFamily: fonts.bodyMedium, fontSize: 15, color: "#A5532F" },
 });

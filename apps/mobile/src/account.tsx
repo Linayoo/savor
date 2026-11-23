@@ -11,6 +11,7 @@ import type { AccountApi } from "./account-api";
 import type * as authModule from "./auth/auth";
 import { getMeta } from "./db/app-meta";
 import { clearAccountData } from "./db/clear-account";
+import { SyncError } from "./sync/api";
 import type { AppDb } from "./db/types";
 import { claimPhone, OwnershipError } from "./sync/ownership";
 
@@ -26,6 +27,7 @@ export type AuthService = Pick<
   | "requestPasswordReset"
   | "confirmPasswordReset"
   | "signOut"
+  | "refreshSession"
 >;
 
 // sessionEnded: tokens could no longer be refreshed, so syncing stopped and
@@ -64,6 +66,9 @@ type AccountContextValue = {
   ) => Promise<void>;
   signOut: () => Promise<void>;
   endSession: () => Promise<void>;
+  // Deletes the account on the server, then clears it from this phone
+  // (spec 010). Rejects when it failed; trying again continues it.
+  deleteAccount: () => Promise<void>;
   // For sync, on ACCOUNT_DELETED: clears the account from this phone
   accountDeleted: () => Promise<void>;
   // For sync: called before signing out, and returns how to undo it if the
@@ -200,6 +205,29 @@ export function AccountProvider({
 
   const accountDeleted = () => clearDeletedAccount("elsewhere");
 
+  const deleteAccount = async () => {
+    if (!accountApi) throw new Error("Account deletion isn't available");
+    // Syncing stops first, as for signing out, so no push lands meanwhile
+    const undo = [...signOutListeners.current].map((listener) => listener());
+    try {
+      await auth.refreshSession();
+      await accountApi.deleteAccount();
+    } catch (error) {
+      // Once the account is marked, a sync would only be refused, so it
+      // stays stopped and a retry continues the deletion. A retry refused
+      // because an earlier attempt revoked the session is done here: the
+      // server's daily job finishes it.
+      const marked = await ownerWasDeleted();
+      const revoked =
+        error instanceof SyncError && error.kind === "unauthorized";
+      if (!(marked && revoked)) {
+        if (!marked) undo.forEach((resume) => resume());
+        throw error;
+      }
+    }
+    await clearDeletedAccount("here");
+  };
+
   return (
     <AccountContext.Provider
       value={{
@@ -212,6 +240,7 @@ export function AccountProvider({
         confirmPasswordReset: auth.confirmPasswordReset,
         signOut,
         endSession,
+        deleteAccount,
         accountDeleted,
         onSignOut,
         onCleared,

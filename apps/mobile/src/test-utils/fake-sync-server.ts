@@ -60,6 +60,9 @@ export class FakeSyncServer {
     null;
   // Accounts deleted with account.delete (spec 010)
   private deletedAccounts = new Set<string>();
+  // The next account.delete marks the account, then fails, as one that
+  // stopped after its first steps
+  failNextDeleteAfterMarking = false;
 
   // Every push the server received, accepted or not
   readonly pushes: { userId: string; input: PushInput }[] = [];
@@ -99,6 +102,11 @@ export class FakeSyncServer {
       deleteAccount: async () => {
         await Promise.resolve();
         this.takeFault("deleteAccount");
+        if (this.failNextDeleteAfterMarking) {
+          this.failNextDeleteAfterMarking = false;
+          this.deletedAccounts.add(userId);
+          throw new SyncError("unavailable");
+        }
         this.deleteAccount(userId);
       },
       wasDeleted: async (id) => {

@@ -63,7 +63,8 @@ Infrastructure (Terraform, `infra/app`):
 
 - The Account screen entry, the confirmation screen and its states.
 - Before calling `account.delete`, the sync engine stops, as for sign-out (spec 005), and the phone refreshes its tokens, so it has a fresh hour for retries.
-- If a retry is refused because the session can't be refreshed anymore, the phone asks `account.wasDeleted`; when the account is marked, the deletion counts as done here and the daily job finishes the server's part.
+- After a failed attempt, the phone asks `account.wasDeleted`. If the account isn't marked, syncing resumes. If it is, syncing stays stopped (it would only be refused), the failure line shows, and a retry continues the deletion.
+- If a retry is refused because the session can't be refreshed anymore, and the account is marked, the deletion counts as done here and the daily job finishes the server's part.
 - After success, in this order: delete the account's photo files, clear the database (moments, photos, letters, `app_meta` owner and sync state) in one transaction, clear the Keychain tokens, then sign out locally.
 - `ACCOUNT_DELETED` from a sync, or `account.wasDeleted` answering true after the session ended, triggers the same local clearing on other devices, with the "This account was deleted" message. Cognito doesn't say the user no longer exists while refreshing: with user existence errors prevented, a deleted user's refresh fails like any revoked session, and Amplify clears the tokens. Sync always runs before the letters calls, so it's the one place that handles `ACCOUNT_DELETED`.
 - Clearing is safe to repeat: if the app is closed halfway, the next open finishes it.

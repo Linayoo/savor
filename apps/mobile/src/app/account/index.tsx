@@ -66,6 +66,12 @@ export default function Account() {
         onPress={() => void signOutNow()}
       />
       <Notice>Signing out keeps your moments on this phone.</Notice>
+      <TextLink
+        label="Delete account"
+        destructive
+        disabled={busy}
+        onPress={() => router.push("/account/delete")}
+      />
     </FormScreen>
   );
 }

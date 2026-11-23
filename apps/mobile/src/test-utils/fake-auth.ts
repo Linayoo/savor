@@ -67,6 +67,7 @@ export function fakeAuth({
         if (account) account.password = newPassword;
       },
     ),
+    refreshSession: jest.fn(async () => undefined),
     signOut: jest.fn(async () => {
       if (signOutFails) throw awsError("SomethingNewException");
       current = null;
