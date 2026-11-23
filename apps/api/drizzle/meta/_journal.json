@@ -43,6 +43,13 @@
       "when": 1794484724609,
       "tag": "0005_photo_size",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1795447570012,
+      "tag": "0006_deleted_accounts",
+      "breakpoints": true
     }
   ]
 }

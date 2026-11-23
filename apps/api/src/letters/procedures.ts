@@ -6,6 +6,7 @@ import type {
 import { desc, eq } from "drizzle-orm";
 import type { Db } from "../db/client";
 import { letterSettings, letters } from "../db/schema";
+import { lockVersion } from "../sync/push";
 
 // The letter procedures from spec 007, each scoped to the signed-in user
 
@@ -29,13 +30,17 @@ export async function setSettings(
   { enabled, timeZone }: SetLetterSettingsInput,
   now = Date.now(),
 ): Promise<LetterSettings> {
-  await db
-    .insert(letterSettings)
-    .values({ userId, enabled, timeZone, updatedAt: now })
-    .onConflictDoUpdate({
-      target: letterSettings.userId,
-      set: { enabled, timeZone, updatedAt: now },
-    });
+  // Under the user's sync lock, so nothing is written for a deleted account
+  await db.transaction(async (tx) => {
+    await lockVersion(tx, userId);
+    await tx
+      .insert(letterSettings)
+      .values({ userId, enabled, timeZone, updatedAt: now })
+      .onConflictDoUpdate({
+        target: letterSettings.userId,
+        set: { enabled, timeZone, updatedAt: now },
+      });
+  });
   return { enabled, timeZone };
 }
 

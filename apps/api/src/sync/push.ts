@@ -2,6 +2,7 @@ import type { MomentChange, PushInput, PushOutput } from "@savor/shared";
 import { TRPCError } from "@trpc/server";
 import { and, eq, inArray, isNull, ne, sql, type SQL } from "drizzle-orm";
 import type { PgColumn } from "drizzle-orm/pg-core";
+import { accountDeleted, isDeleted } from "../accounts/deleted";
 import type { Db } from "../db/client";
 import { momentPhotos, moments, userSyncState } from "../db/schema";
 import { addUsage, LIMITS, quotaExceeded } from "../quotas";
@@ -160,9 +161,19 @@ async function checkPhotosPerMoment(
   if (over) throw quotaExceeded("photosPerMoment");
 }
 
+// For writers: locks the user's version like lockSyncState, then refuses a
+// deleted account. Account deletion marks the account under the same lock
+// (spec 010), so a write either commits before the mark, and step 4 deletes
+// it, or sees the mark.
+export async function lockVersion(tx: Db, userId: string): Promise<number> {
+  const version = await lockSyncState(tx, userId);
+  if (await isDeleted(tx, userId)) throw accountDeleted();
+  return version;
+}
+
 // Locks the user's version for the rest of the transaction, so concurrent
 // writes take turns, and returns it
-export async function lockVersion(tx: Db, userId: string): Promise<number> {
+export async function lockSyncState(tx: Db, userId: string): Promise<number> {
   await tx
     .insert(userSyncState)
     .values({ userId, version: 0 })

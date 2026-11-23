@@ -98,3 +98,13 @@ export const letters = pgTable(
   },
   (t) => [unique("letters_user_month_unique").on(t.userId, t.month)],
 );
+
+// Accounts deleted with account.delete (spec 010): only the Cognito sub, a
+// random id, and the dates. Marked before anything is deleted, so every
+// protected procedure refuses the account from then on; finished once the
+// last step ran. Removed 90 days after the deletion.
+export const deletedAccounts = pgTable("deleted_accounts", {
+  userId: text("user_id").primaryKey(),
+  deletedAt: ms("deleted_at").notNull(),
+  finishedAt: ms("finished_at"),
+});

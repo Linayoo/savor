@@ -2,7 +2,13 @@ import type { LetterMonth } from "@savor/shared";
 import { and, asc, desc, eq, gte, isNull, lt, sql } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import type { Db } from "../db/client";
-import { letterSettings, letters, moments } from "../db/schema";
+import {
+  deletedAccounts,
+  letterSettings,
+  letters,
+  moments,
+} from "../db/schema";
+import { lockVersion } from "../sync/push";
 import { MAX_LETTER_MOMENTS } from "./prompt";
 import type { LetterWriter } from "./writer";
 
@@ -117,7 +123,8 @@ export async function runLetters({
     });
   };
 
-  // People with letters on and no letter yet for this month
+  // People with letters on and no letter yet for this month, whose account
+  // isn't being deleted (spec 010)
   const users = await db
     .select({
       userId: letterSettings.userId,
@@ -128,7 +135,17 @@ export async function runLetters({
       letters,
       and(eq(letters.userId, letterSettings.userId), eq(letters.month, month)),
     )
-    .where(and(eq(letterSettings.enabled, true), isNull(letters.id)))
+    .leftJoin(
+      deletedAccounts,
+      eq(deletedAccounts.userId, letterSettings.userId),
+    )
+    .where(
+      and(
+        eq(letterSettings.enabled, true),
+        isNull(letters.id),
+        isNull(deletedAccounts.userId),
+      ),
+    )
     .orderBy(asc(letterSettings.userId));
   summary.users = users.length;
 
@@ -151,21 +168,26 @@ export async function runLetters({
         continue;
       }
 
-      // A run that overlaps this one may have saved it first
-      const saved = await db
-        .insert(letters)
-        .values({
-          id: randomUUID(),
-          userId,
-          month,
-          body: result.body,
-          model: writer.model,
-          inputTokens: result.inputTokens,
-          outputTokens: result.outputTokens,
-          createdAt: now,
-        })
-        .onConflictDoNothing({ target: [letters.userId, letters.month] })
-        .returning({ id: letters.id });
+      // A run that overlaps this one may have saved it first. Under the
+      // user's sync lock, so no letter is saved once the account is marked
+      // deleted.
+      const saved = await db.transaction(async (tx) => {
+        await lockVersion(tx, userId);
+        return tx
+          .insert(letters)
+          .values({
+            id: randomUUID(),
+            userId,
+            month,
+            body: result.body,
+            model: writer.model,
+            inputTokens: result.inputTokens,
+            outputTokens: result.outputTokens,
+            createdAt: now,
+          })
+          .onConflictDoNothing({ target: [letters.userId, letters.month] })
+          .returning({ id: letters.id });
+      });
       if (saved.length === 0) {
         summary.skipped.already++;
         continue;
