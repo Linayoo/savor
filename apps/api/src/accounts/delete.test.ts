@@ -20,7 +20,9 @@ import { createCallerFactory } from "../trpc";
 import { deleteAccount } from "./delete";
 
 const db = testDb();
-const t = Date.UTC(2026, 10, 20, 9, 30);
+// Now, so the daily job, tested at the same time on the same database,
+// leaves these open deletions alone for their first hour (cleanup.ts)
+const t = Date.now();
 const later = t + 60_000;
 
 // An account with something in every table, two photo files and an upload

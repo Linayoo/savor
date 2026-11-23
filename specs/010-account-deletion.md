@@ -41,7 +41,7 @@ New public procedure `account.wasDeleted({ userId })`, on its own route without 
 Rules:
 
 - The user id comes only from the verified token, as everywhere else, except for `account.wasDeleted`. That one answers only whether a random id was deleted in the last 90 days, which is why it needs no token: a device learns its account was deleted even after its tokens stopped working.
-- `deleted_accounts` keeps only the Cognito `sub` (a random id) and the date, for 90 days, so devices that come back online later still learn the account was deleted. Then the row is removed. The privacy policy says so.
+- `deleted_accounts` keeps only the Cognito `sub` (a random id) and the date, for 90 days after the deletion finished, so devices that come back online later still learn the account was deleted. Then the row is removed. The privacy policy says so.
 - `account.delete` for a user already in `deleted_accounts` runs every step again; step 1 changes nothing, so a retry completes a deletion that failed partway.
 - A daily job finishes deletions still open (no `finished_at`), so a deletion completes even when the phone can't try again, for example after step 2 revoked its session and its access token expired.
 - `ACCOUNT_DELETED` is a tRPC `FORBIDDEN` error with `data.reason: "ACCOUNT_DELETED"`; tRPC's codes are fixed. Apps before 1.1.0 take it for a server error and retry, losing nothing.
@@ -57,7 +57,7 @@ Infrastructure (Terraform, `infra/app`):
 - Its existing S3 access to `users/*` (list, delete) is enough.
 - The API function gets the user pool id as `COGNITO_USER_POOL_ID`.
 - A public route `GET /account.wasDeleted` without the authorizer.
-- The daily job: an EventBridge schedule at 04:00 Zurich calls the API function with `{ source: "savor.accounts" }`, as the keepwarm schedule does. Each run finishes at most 10 open deletions, then removes finished rows older than 90 days. The API function already has the S3 and Cognito access it needs; the letters function has neither.
+- The daily job: an EventBridge schedule at 04:00 Zurich calls the API function with `{ source: "savor.accounts" }`, as the keepwarm schedule does. Each run finishes at most 10 deletions that have been open for more than an hour (the phone's own retries come first), then removes rows whose deletion finished more than 90 days ago. The API function already has the S3 and Cognito access it needs; the letters function has neither.
 
 ## Phone
 

@@ -5,6 +5,7 @@ import type {
   APIGatewayProxyEventV2WithRequestContext,
   Context as LambdaContext,
 } from "aws-lambda";
+import { cleanUpDeletedAccounts } from "./accounts/cleanup";
 import type { AccountDirectory } from "./accounts/directory";
 import type { Db } from "./db/client";
 import type { PhotoStorage } from "./photos/storage";
@@ -21,7 +22,10 @@ export type ApiEvent = APIGatewayProxyEventV2WithRequestContext<
 // EventBridge Scheduler's weekly call that keeps the function active (ADR 0002)
 export type KeepwarmEvent = { source: "savor.keepwarm" };
 
-export type HandlerEvent = ApiEvent | KeepwarmEvent;
+// EventBridge Scheduler's daily call for deleted accounts (spec 010)
+export type AccountsEvent = { source: "savor.accounts" };
+
+export type HandlerEvent = ApiEvent | KeepwarmEvent | AccountsEvent;
 
 export type HandlerDeps = {
   getDatabaseUrl: () => Promise<string>;
@@ -54,11 +58,16 @@ export function createHandler({
 
   return async (event: HandlerEvent, context: LambdaContext) => {
     // tRPC's adapter throws on events that aren't HTTP requests
-    if ("source" in event) return { ok: true as const };
+    if ("source" in event && event.source !== "savor.accounts") {
+      return { ok: true as const };
+    }
 
     // A pool per request, closed before the response (ADR 0003)
     const { db, close } = createDb(await readDatabaseUrl());
     try {
+      if ("source" in event) {
+        return await cleanUpDeletedAccounts({ db, photos, accounts });
+      }
       return await awsLambdaRequestHandler({
         router: appRouter,
         createContext: ({ event }: { event: ApiEvent }) => ({

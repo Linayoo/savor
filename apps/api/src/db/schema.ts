@@ -102,7 +102,7 @@ export const letters = pgTable(
 // Accounts deleted with account.delete (spec 010): only the Cognito sub, a
 // random id, and the dates. Marked before anything is deleted, so every
 // protected procedure refuses the account from then on; finished once the
-// last step ran. Removed 90 days after the deletion.
+// last step ran. Removed 90 days after it finished.
 export const deletedAccounts = pgTable("deleted_accounts", {
   userId: text("user_id").primaryKey(),
   deletedAt: ms("deleted_at").notNull(),

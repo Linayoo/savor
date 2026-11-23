@@ -24,7 +24,9 @@ import { unavailableAccountDirectory } from "./directory";
 // anymore, from any device
 
 const db = testDb();
-const t = Date.UTC(2026, 10, 20, 9, 30);
+// Now, so the daily job, tested at the same time on the same database,
+// leaves these marked accounts alone (cleanup.ts)
+const t = Date.now();
 
 const markDeleted = (userId: string) =>
   db.insert(deletedAccounts).values({ userId, deletedAt: t });
@@ -147,8 +149,10 @@ describe("writers, called after the account was marked", () => {
 describe("the letter job", () => {
   it("skips a deleted account", async () => {
     const userId = newUserId();
-    // October 2060, far from other tests' months
-    const day = (d: number) => Date.UTC(2060, 9, d, 12);
+    // October 2999, far from the letter tests' months. Marked first, so a
+    // letter test running meanwhile never sees this account.
+    const day = (d: number) => Date.UTC(2999, 9, d, 12);
+    await markDeleted(userId);
     await db.insert(letterSettings).values({
       userId,
       enabled: true,
@@ -164,7 +168,6 @@ describe("the letter job", () => {
         version: d,
       })),
     );
-    await markDeleted(userId);
     const writer: LetterWriter & { calls: number } = {
       model: "fake-model",
       calls: 0,
@@ -177,8 +180,8 @@ describe("the letter job", () => {
     await runLetters({
       db,
       writer,
-      now: Date.UTC(2060, 10, 1, 7),
-      month: "2060-10",
+      now: Date.UTC(2999, 10, 1, 7),
+      month: "2999-10",
       log: () => undefined,
     });
 

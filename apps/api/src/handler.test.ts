@@ -152,6 +152,20 @@ describe("handler", () => {
     expect(openDb).not.toHaveBeenCalled();
   });
 
+  it("runs the daily account cleanup on its scheduled event, in a pool it closes", async () => {
+    const { handler, openDb, closed } = setup();
+
+    const result = await handler({ source: "savor.accounts" }, lambdaContext);
+
+    expect(result).toEqual({
+      finished: expect.any(Number),
+      failed: expect.any(Number),
+      removed: expect.any(Number),
+    });
+    expect(openDb).toHaveBeenCalledTimes(1);
+    expect(closed).toHaveBeenCalledTimes(1);
+  });
+
   it("reads the database url once per container", async () => {
     const { call, getDatabaseUrl } = setup();
 
