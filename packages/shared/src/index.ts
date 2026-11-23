@@ -3,3 +3,4 @@ export * from "./sync";
 export * from "./photos";
 export * from "./letters";
 export * from "./quotas";
+export * from "./account";

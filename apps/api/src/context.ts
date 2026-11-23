@@ -1,5 +1,6 @@
 import type { CreateHTTPContextOptions } from "@trpc/server/adapters/standalone";
 import type { IncomingHttpHeaders } from "node:http";
+import { unavailableAccountDirectory } from "./accounts/directory";
 import type { Db } from "./db/client";
 import { unavailablePhotoStorage } from "./photos/storage";
 import type { Context } from "./trpc";
@@ -21,5 +22,6 @@ export function createContextFactory(db: Db, env = process.env.NODE_ENV) {
     db,
     userId: devUserId(req.headers, env),
     photos: unavailablePhotoStorage,
+    accounts: unavailableAccountDirectory,
   });
 }

@@ -1,5 +1,6 @@
 import {
   confirmUploadOutputSchema,
+  deleteAccountOutputSchema,
   createUploadOutputSchema,
   downloadUrlsInputSchema,
   downloadUrlsOutputSchema,
@@ -12,12 +13,18 @@ import {
   pushOutputSchema,
   setLetterSettingsInputSchema,
 } from "@savor/shared";
+import { deleteAccount } from "./accounts/delete";
 import { getSettings, listLetters, setSettings } from "./letters/procedures";
 import { deletePushedPhotoFiles } from "./photos/delete-files";
 import { confirmUpload, createUpload, downloadUrls } from "./photos/procedures";
 import { pull } from "./sync/pull";
 import { push } from "./sync/push";
-import { protectedProcedure, publicProcedure, router } from "./trpc";
+import {
+  authedProcedure,
+  protectedProcedure,
+  publicProcedure,
+  router,
+} from "./trpc";
 
 export const appRouter = router({
   health: router({
@@ -69,6 +76,19 @@ export const appRouter = router({
     list: protectedProcedure
       .output(listLettersOutputSchema)
       .query(({ ctx }) => listLetters(ctx.db, ctx.userId)),
+  }),
+  account: router({
+    // Runs for an account already marked deleted too, to finish it
+    delete: authedProcedure
+      .output(deleteAccountOutputSchema)
+      .mutation(({ ctx }) =>
+        deleteAccount({
+          db: ctx.db,
+          photos: ctx.photos,
+          accounts: ctx.accounts,
+          userId: ctx.userId,
+        }),
+      ),
   }),
 });
 

@@ -1,6 +1,7 @@
 import { UPLOAD_CONDITIONS } from "../src/photos/s3-storage";
 import {
   DOWNLOAD_EXPIRES_SECONDS,
+  isUserFolder,
   PENDING_TAGGING,
   PHOTO_CONTENT_TYPE,
   UPLOAD_EXPIRES_SECONDS,
@@ -121,6 +122,16 @@ export class FakePhotoStorage implements PhotoStorage {
     if (this.failDeletes) throw new Error("S3 is unavailable");
     this.deletes.push(keys);
     keys.forEach((key) => this.objects.delete(key));
+  }
+
+  async deleteFolder(folder: string) {
+    if (!isUserFolder(folder))
+      throw new Error(`Not a user's folder: ${folder}`);
+    const keys = [...this.objects.keys()].filter((key) =>
+      key.startsWith(folder),
+    );
+    if (keys.length > 0) await this.deleteAll(keys);
+    return keys.length;
   }
 }
 

@@ -5,6 +5,7 @@ import type {
   APIGatewayProxyEventV2WithRequestContext,
   Context as LambdaContext,
 } from "aws-lambda";
+import type { AccountDirectory } from "./accounts/directory";
 import type { Db } from "./db/client";
 import type { PhotoStorage } from "./photos/storage";
 import { appRouter } from "./router";
@@ -26,6 +27,7 @@ export type HandlerDeps = {
   getDatabaseUrl: () => Promise<string>;
   createDb: (url: string) => { db: Db; close: () => Promise<void> };
   photos: PhotoStorage;
+  accounts: AccountDirectory;
 };
 
 // The user is only ever the verified token's subject, never a header
@@ -38,6 +40,7 @@ export function createHandler({
   getDatabaseUrl,
   createDb,
   photos,
+  accounts,
 }: HandlerDeps) {
   // Read once per container; a failed read isn't kept, so the next request retries
   let databaseUrl: Promise<string> | undefined;
@@ -62,6 +65,7 @@ export function createHandler({
           db,
           userId: userIdFromEvent(event),
           photos,
+          accounts,
         }),
       })(event, context);
     } finally {

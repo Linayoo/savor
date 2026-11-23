@@ -5,6 +5,7 @@ import { FakePhotoStorage } from "../../test/fake-photo-storage";
 import { letters } from "../db/schema";
 import { appRouter } from "../router";
 import { createCallerFactory } from "../trpc";
+import { unavailableAccountDirectory } from "../accounts/directory";
 
 const db = testDb();
 const as = (userId: string | null) =>
@@ -12,6 +13,7 @@ const as = (userId: string | null) =>
     db,
     userId,
     photos: new FakePhotoStorage(),
+    accounts: unavailableAccountDirectory,
   });
 
 async function storeLetter(userId: string, month: string, body = "Dear you") {

@@ -18,6 +18,7 @@ import { confirmUpload, createUpload } from "../photos/procedures";
 import { appRouter } from "../router";
 import { push } from "../sync/push";
 import { createCallerFactory } from "../trpc";
+import { unavailableAccountDirectory } from "./directory";
 
 // Spec 010: once an account is marked deleted, nothing reads or writes it
 // anymore, from any device
@@ -33,6 +34,7 @@ const caller = (userId: string) =>
     db,
     userId,
     photos: new FakePhotoStorage(),
+    accounts: unavailableAccountDirectory,
   });
 
 const momentChange = () => ({
@@ -196,7 +198,12 @@ describe("over HTTP", () => {
       endpoint: "/",
       req: new Request("http://localhost/letters.list"),
       router: appRouter,
-      createContext: () => ({ db, userId, photos: new FakePhotoStorage() }),
+      createContext: () => ({
+        db,
+        userId,
+        photos: new FakePhotoStorage(),
+        accounts: unavailableAccountDirectory,
+      }),
     });
     const body = await response.json();
 

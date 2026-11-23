@@ -8,11 +8,17 @@ import { momentPhotos, moments, userSyncState } from "../db/schema";
 import { appRouter } from "../router";
 import { createCallerFactory } from "../trpc";
 import { unavailablePhotoStorage } from "../photos/storage";
+import { unavailableAccountDirectory } from "../accounts/directory";
 
 const db = testDb();
 const createCaller = createCallerFactory(appRouter);
 const as = (userId: string | null) =>
-  createCaller({ db, userId, photos: unavailablePhotoStorage });
+  createCaller({
+    db,
+    userId,
+    photos: unavailablePhotoStorage,
+    accounts: unavailableAccountDirectory,
+  });
 
 const t = Date.UTC(2026, 9, 1, 9, 30);
 

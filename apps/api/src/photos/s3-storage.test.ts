@@ -128,6 +128,78 @@ describe("deleteAll", () => {
   });
 });
 
+describe("deleteFolder", () => {
+  const folder = "users/sub-a/";
+  const page = (count: number, from = 0) => ({
+    Contents: Array.from({ length: count }, (_, i) => ({
+      Key: `${folder}photos/${from + i}.jpg`,
+    })),
+  });
+
+  it("lists the folder and deletes what it finds until nothing is left", async () => {
+    const s3 = client();
+    const send = vi
+      .spyOn(s3, "send")
+      .mockResolvedValueOnce(page(1000) as never)
+      .mockResolvedValueOnce({} as never)
+      .mockResolvedValueOnce(page(3, 1000) as never)
+      .mockResolvedValueOnce({} as never)
+      .mockResolvedValueOnce({ KeyCount: 0 } as never);
+
+    const deleted = await s3PhotoStorage(s3, bucket).deleteFolder(folder);
+
+    expect(deleted).toBe(1003);
+    const inputs = send.mock.calls.map(
+      ([command]) =>
+        (command as unknown as { input: Record<string, unknown> }).input,
+    );
+    expect(inputs[0]).toEqual({
+      Bucket: bucket,
+      Prefix: folder,
+      MaxKeys: 1000,
+    });
+    expect(inputs[1]).toMatchObject({
+      Bucket: bucket,
+      Delete: { Quiet: true, Objects: page(1000).Contents },
+    });
+    expect(inputs[3]).toMatchObject({
+      Delete: { Objects: page(3, 1000).Contents },
+    });
+    expect(send).toHaveBeenCalledTimes(5);
+  });
+
+  it("only lists an empty folder", async () => {
+    const s3 = client();
+    const send = vi.spyOn(s3, "send").mockResolvedValue({} as never);
+
+    expect(await s3PhotoStorage(s3, bucket).deleteFolder(folder)).toBe(0);
+    expect(send).toHaveBeenCalledTimes(1);
+  });
+
+  it("fails when S3 couldn't delete some of them", async () => {
+    const s3 = client();
+    vi.spyOn(s3, "send")
+      .mockResolvedValueOnce(page(2) as never)
+      .mockResolvedValueOnce({
+        Errors: [{ Key: `${folder}photos/0.jpg`, Code: "AccessDenied" }],
+      } as never);
+
+    await expect(
+      s3PhotoStorage(s3, bucket).deleteFolder(folder),
+    ).rejects.toThrow("AccessDenied");
+  });
+
+  it("refuses a key that isn't a user's folder", async () => {
+    const s3 = client();
+    const send = vi.spyOn(s3, "send");
+
+    await expect(
+      s3PhotoStorage(s3, bucket).deleteFolder("users/"),
+    ).rejects.toThrow();
+    expect(send).not.toHaveBeenCalled();
+  });
+});
+
 describe("clearPendingTag", () => {
   it("removes the object's tags, so the lifecycle rule keeps it", async () => {
     const s3 = client();

@@ -11,6 +11,7 @@ import {
 } from "./trpc";
 import { unavailablePhotoStorage } from "./photos/storage";
 import { quotaExceeded } from "./quotas";
+import { unavailableAccountDirectory } from "./accounts/directory";
 
 const db = testDb();
 
@@ -20,6 +21,7 @@ describe("health.check", () => {
       db,
       userId: null,
       photos: unavailablePhotoStorage,
+      accounts: unavailableAccountDirectory,
     });
 
     expect(await caller.health.check()).toEqual({ ok: true });
@@ -36,6 +38,7 @@ describe("protectedProcedure", () => {
       db,
       userId,
       photos: unavailablePhotoStorage,
+      accounts: unavailableAccountDirectory,
     });
 
   it("rejects a call without a user with UNAUTHORIZED", async () => {
@@ -76,6 +79,7 @@ describe("quota refusals", () => {
         db,
         userId: null,
         photos: unavailablePhotoStorage,
+        accounts: unavailableAccountDirectory,
       }),
     });
     return { status: response.status, body: await response.json() };

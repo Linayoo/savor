@@ -1,5 +1,6 @@
 import { initTRPC, TRPCError } from "@trpc/server";
 import { AccountDeleted, accountDeleted, isDeleted } from "./accounts/deleted";
+import type { AccountDirectory } from "./accounts/directory";
 import type { Db } from "./db/client";
 import type { PhotoStorage } from "./photos/storage";
 import { QuotaExceeded } from "./quotas";
@@ -10,6 +11,8 @@ export type Context = {
   // locally (context.ts)
   userId: string | null;
   photos: PhotoStorage;
+  // Cognito's admin calls, for account.delete (spec 010)
+  accounts: AccountDirectory;
 };
 
 // A quota refusal names its quota, so the app can say what happens next; a

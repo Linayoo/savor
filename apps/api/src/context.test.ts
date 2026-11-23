@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { testDb } from "../test/db";
 import { createContextFactory, devUserId } from "./context";
 import { unavailablePhotoStorage } from "./photos/storage";
+import { unavailableAccountDirectory } from "./accounts/directory";
 
 const headers = (h: Record<string, string>) => h as IncomingMessage["headers"];
 
@@ -39,6 +40,7 @@ describe("createContextFactory", () => {
       db,
       userId: "ana",
       photos: unavailablePhotoStorage,
+      accounts: unavailableAccountDirectory,
     });
   });
 
@@ -50,6 +52,7 @@ describe("createContextFactory", () => {
       db,
       userId: null,
       photos: unavailablePhotoStorage,
+      accounts: unavailableAccountDirectory,
     });
   });
 });

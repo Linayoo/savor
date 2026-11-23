@@ -8,6 +8,7 @@ import { apiEvent, lambdaContext } from "../test/events";
 import { createDb } from "./db/client";
 import { createHandler, type HandlerEvent } from "./handler";
 import { unavailablePhotoStorage } from "./photos/storage";
+import { unavailableAccountDirectory } from "./accounts/directory";
 
 // The handler on the test database, counting secret reads and closed pools
 function setup() {
@@ -27,6 +28,7 @@ function setup() {
     getDatabaseUrl,
     createDb: openDb,
     photos: unavailablePhotoStorage,
+    accounts: unavailableAccountDirectory,
   });
   const call = async (event: HandlerEvent) => {
     const result = (await handler(

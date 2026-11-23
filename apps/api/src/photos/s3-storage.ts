@@ -3,6 +3,7 @@ import {
   DeleteObjectTaggingCommand,
   GetObjectCommand,
   HeadObjectCommand,
+  ListObjectsV2Command,
   type S3Client,
 } from "@aws-sdk/client-s3";
 import {
@@ -16,10 +17,11 @@ import {
   PENDING_TAGGING,
   PHOTO_CONTENT_TYPE,
   UPLOAD_EXPIRES_SECONDS,
+  isUserFolder,
   type PhotoStorage,
 } from "./storage";
 
-// DeleteObjects takes at most 1000 keys
+// DeleteObjects takes at most 1000 keys, and ListObjectsV2 returns as many
 const DELETE_BATCH = 1000;
 
 // What S3 checks on every upload form. createPresignedPost adds the exact
@@ -72,6 +74,28 @@ export function s3PhotoStorage(client: S3Client, bucket: string): PhotoStorage {
       getSignedUrl(client, new GetObjectCommand({ Bucket: bucket, Key: key }), {
         expiresIn: DOWNLOAD_EXPIRES_SECONDS,
       }),
+
+    // Lists the first page and deletes it, until a listing comes back empty.
+    // Each listing starts again, so no continuation token goes stale while
+    // its keys are deleted.
+    async deleteFolder(folder) {
+      if (!isUserFolder(folder))
+        throw new Error(`Not a user's folder: ${folder}`);
+      let deleted = 0;
+      for (;;) {
+        const { Contents = [] } = await client.send(
+          new ListObjectsV2Command({
+            Bucket: bucket,
+            Prefix: folder,
+            MaxKeys: DELETE_BATCH,
+          }),
+        );
+        const keys = Contents.flatMap(({ Key }) => (Key ? [Key] : []));
+        if (keys.length === 0) return deleted;
+        await this.deleteAll(keys);
+        deleted += keys.length;
+      }
+    },
 
     async deleteAll(keys) {
       for (let i = 0; i < keys.length; i += DELETE_BATCH) {

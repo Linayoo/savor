@@ -1,5 +1,8 @@
+import { CognitoIdentityProviderClient } from "@aws-sdk/client-cognito-identity-provider";
 import { S3Client } from "@aws-sdk/client-s3";
 import { SecretsManagerClient } from "@aws-sdk/client-secrets-manager";
+import { cognitoAccountDirectory } from "./accounts/cognito-directory";
+import { unavailableAccountDirectory } from "./accounts/directory";
 import { createDb } from "./db/client";
 import { createHandler } from "./handler";
 import { s3PhotoStorage } from "./photos/s3-storage";
@@ -26,8 +29,17 @@ const photos =
     ? s3PhotoStorage(new S3Client({ region: photosRegion }), photosBucket)
     : unavailablePhotoStorage;
 
+// Savor's user pool (infra/app/auth.tf), for account deletion (spec 010).
+// Without it only account.delete fails, as with the photos bucket above.
+const userPoolId = process.env.COGNITO_USER_POOL_ID;
+if (!userPoolId) console.error("COGNITO_USER_POOL_ID is not set");
+const accounts = userPoolId
+  ? cognitoAccountDirectory(new CognitoIdentityProviderClient({}), userPoolId)
+  : unavailableAccountDirectory;
+
 export const handler = createHandler({
   getDatabaseUrl: () => readDatabaseUrl(secrets, secretId),
   createDb: (url) => createDb(url, "neon"),
   photos,
+  accounts,
 });

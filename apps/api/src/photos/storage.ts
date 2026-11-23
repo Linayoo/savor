@@ -26,10 +26,19 @@ export interface PhotoStorage {
   // Reads the object, for 15 minutes
   downloadUrl(key: string): Promise<string>;
   deleteAll(keys: string[]): Promise<void>;
+  // Deletes every object under a user's folder, unconfirmed uploads
+  // included, and returns how many (spec 010)
+  deleteFolder(folder: string): Promise<number>;
 }
 
 export const photoKey = (userId: string, photoId: string) =>
   `users/${userId}/photos/${photoId}.jpg`;
+
+// Everything of one user in the bucket
+export const userFolder = (userId: string) => `users/${userId}/`;
+
+// deleteFolder takes nothing wider, such as users/ itself
+export const isUserFolder = (folder: string) => /^users\/[^/]+\/$/.test(folder);
 
 // For the local dev server: the app only ever talks to the deployed API
 export const unavailablePhotoStorage: PhotoStorage = {
@@ -38,6 +47,7 @@ export const unavailablePhotoStorage: PhotoStorage = {
   clearPendingTag: unavailable,
   downloadUrl: unavailable,
   deleteAll: async () => undefined,
+  deleteFolder: unavailable,
 };
 
 async function unavailable(): Promise<never> {

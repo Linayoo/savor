@@ -6,11 +6,17 @@ import { FakePhotoStorage } from "../../test/fake-photo-storage";
 import { appRouter } from "../router";
 import { createCallerFactory } from "../trpc";
 import { photoKey } from "./storage";
+import { unavailableAccountDirectory } from "../accounts/directory";
 
 const db = testDb();
 let storage: FakePhotoStorage;
 const as = (userId: string) =>
-  createCallerFactory(appRouter)({ db, userId, photos: storage });
+  createCallerFactory(appRouter)({
+    db,
+    userId,
+    photos: storage,
+    accounts: unavailableAccountDirectory,
+  });
 
 beforeEach(() => {
   storage = new FakePhotoStorage();

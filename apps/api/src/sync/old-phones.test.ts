@@ -6,6 +6,7 @@ import { newUserId, testDb } from "../../test/db";
 import { appRouter } from "../router";
 import { createCallerFactory } from "../trpc";
 import { unavailablePhotoStorage } from "../photos/storage";
+import { unavailableAccountDirectory } from "../accounts/directory";
 
 const db = testDb();
 const as = (userId: string) =>
@@ -13,6 +14,7 @@ const as = (userId: string) =>
     db,
     userId,
     photos: unavailablePhotoStorage,
+    accounts: unavailableAccountDirectory,
   });
 
 // The pull output as the spec 005 build parses it, frozen here: phones on
