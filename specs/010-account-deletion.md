@@ -1,6 +1,6 @@
 # 010: Account deletion
 
-Status: in progress
+Status: done
 
 ## Problem
 
@@ -105,7 +105,7 @@ Quality
 Manual
 
 - [x] Delete a test account on a simulator, with a second simulator signed in to it.
-- [ ] Check with the AWS CLI that the Cognito user is gone and the S3 prefix is empty, and in Neon's SQL editor that no rows remain.
+- [x] Check with the AWS CLI that the Cognito user is gone and the S3 prefix is empty, and in Neon's SQL editor that no rows remain.
 
 Docs
 
