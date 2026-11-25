@@ -66,7 +66,7 @@ Infrastructure (Terraform, `infra/app`):
 - After a failed attempt, the phone asks `account.wasDeleted`. If the account isn't marked, syncing resumes. If it is, syncing stays stopped (it would only be refused), the failure line shows, and a retry continues the deletion.
 - If a retry is refused because the session can't be refreshed anymore, and the account is marked, the deletion counts as done here and the daily job finishes the server's part.
 - After success, in this order: delete the account's photo files, clear the database (moments, photos, letters, `app_meta` owner and sync state) in one transaction, clear the Keychain tokens, then sign out locally.
-- `ACCOUNT_DELETED` from a sync, or `account.wasDeleted` answering true after the session ended, triggers the same local clearing on other devices, with the "This account was deleted" message. Cognito doesn't say the user no longer exists while refreshing: with user existence errors prevented, a deleted user's refresh fails like any revoked session, and Amplify clears the tokens. Sync always runs before the letters calls, so it's the one place that handles `ACCOUNT_DELETED`.
+- `ACCOUNT_DELETED` from a sync, or `account.wasDeleted` answering true after the session ended, triggers the same local clearing on other devices, with the "This account was deleted" message. The phone can't rely on Cognito to say the user no longer exists while refreshing: step 2 revoked the refresh token, and AWS's docs don't say which error a deleted user's refresh gets. Amplify clears the tokens either way, at the latest making the next call find no session, so the phone asks `account.wasDeleted`. Sync always runs before the letters calls, so it's the one place that handles `ACCOUNT_DELETED`.
 - Clearing is safe to repeat: if the app is closed halfway, the next open finishes it.
 - After the 90 days, a phone that was offline all that time can't learn its account was deleted, and keeps refusing other accounts. "Remove them from this phone" (behavior 9) is the way out.
 - Moments kept while signed out and never synced, on a phone with no owner, are not touched.
@@ -75,41 +75,41 @@ Infrastructure (Terraform, `infra/app`):
 
 Deleting
 
-- [ ] Given I'm signed in, the Account screen shows "Delete account".
-- [ ] Given the confirmation screen, the button stays disabled until I type "delete".
-- [ ] Given I confirm, then afterwards: my Cognito user doesn't exist, no rows for my user id remain in any table except `deleted_accounts`, and no objects remain under `users/<my id>/` in S3.
-- [ ] Given I confirm, then this phone shows the empty, signed-out timeline with the deletion line, and no moments, photo files, letters or tokens of that account remain on it.
-- [ ] Given another user, then none of their data, objects or sign-in is affected.
+- [x] Given I'm signed in, the Account screen shows "Delete account". Verified: delete-account tests; manual run.
+- [x] Given the confirmation screen, the button stays disabled until I type "delete". Verified: delete-account tests; manual run.
+- [x] Given I confirm, then afterwards: my Cognito user doesn't exist, no rows for my user id remain in any table except `deleted_accounts`, and no objects remain under `users/<my id>/` in S3. Verified: API delete tests; in production, the log line `account_deleted`, written only after every step, with 2 objects and 7 rows.
+- [x] Given I confirm, then this phone shows the empty, signed-out timeline with the deletion line, and no moments, photo files, letters or tokens of that account remain on it. Verified: delete-account, account-deleted and clear-account tests; manual run.
+- [x] Given another user, then none of their data, objects or sign-in is affected. Verified: API delete tests.
 
 Failures and retries
 
-- [ ] Given a failure at any server step, then a retry completes the deletion, with no step causing an error because an earlier one already ran.
-- [ ] Given deletion has started, then push, pull, uploads, letters and settings for that user are refused with `ACCOUNT_DELETED`.
-- [ ] Given a second device signed in to the deleted account, then on its next sync it clears that account's data and shows "This account was deleted."
-- [ ] Given a device that comes back online within 90 days, then it learns the account was deleted the same way.
-- [ ] `deleted_accounts` rows older than 90 days are removed, and the daily job finishes deletions still open.
-- [ ] Given a phone whose session ended on a deleted account, then it asks `account.wasDeleted`, clears that account's data and shows "This account was deleted."
+- [x] Given a failure at any server step, then a retry completes the deletion, with no step causing an error because an earlier one already ran. Verified: API delete tests, failing each of the six steps.
+- [x] Given deletion has started, then push, pull, uploads, letters and settings for that user are refused with `ACCOUNT_DELETED`. Verified: API refusal tests.
+- [x] Given a second device signed in to the deleted account, then on its next sync it clears that account's data and shows "This account was deleted." Verified: account-deleted tests; manual run with two devices.
+- [x] Given a device that comes back online within 90 days, then it learns the account was deleted the same way. Verified: account-deleted and was-deleted tests; in production, `account.wasDeleted` answers true for the test account.
+- [x] `deleted_accounts` rows whose deletion finished more than 90 days ago are removed, and the daily job finishes deletions still open. Verified: API cleanup tests.
+- [x] Given a phone whose session ended on a deleted account, then it asks `account.wasDeleted`, clears that account's data and shows "This account was deleted." Verified: account-deleted tests.
 
 Removing another account's moments
 
-- [ ] Given a sign-in refused because the phone holds another account's moments, when I choose "Remove them from this phone" and confirm, then the moments, photo files, letters and owner are gone from this phone, nothing changes on the server, and I can sign in.
+- [x] Given a sign-in refused because the phone holds another account's moments, when I choose "Remove them from this phone" and confirm, then the moments, photo files, letters and owner are gone from this phone, nothing changes on the server, and I can sign in. Verified: remove-other-account tests; manual run.
 
 Quality
 
-- [ ] API tests on Postgres with fake storage and a fake Cognito admin, covering every step, retries after each failure point, and the cross-user case.
-- [ ] Phone tests for the confirmation, the local clearing order, another device receiving `ACCOUNT_DELETED`, a session ending on a deleted account, and removing another account's moments.
-- [ ] Mutation check: removing the user filter from the delete transaction, or the `deleted_accounts` check from protected procedures, makes a test fail.
-- [ ] Terraform fmt and validate pass; plan shows no changes after apply.
-- [ ] `pnpm typecheck`, `pnpm lint`, `pnpm format:check` and `pnpm test` pass, and the iOS export passes.
+- [x] API tests on Postgres with fake storage and a fake Cognito admin, covering every step, retries after each failure point, and the cross-user case.
+- [x] Phone tests for the confirmation, the local clearing order, another device receiving `ACCOUNT_DELETED`, a session ending on a deleted account, and removing another account's moments.
+- [x] Mutation check: removing the user filter from the delete transaction, or the `deleted_accounts` check from protected procedures, makes a test fail.
+- [x] Terraform fmt and validate pass; plan shows no changes after apply.
+- [x] `pnpm typecheck`, `pnpm lint`, `pnpm format:check` and `pnpm test` pass, and the iOS export passes.
 
 Manual
 
-- [ ] Delete a test account on a simulator, with a second simulator signed in to it.
+- [x] Delete a test account on a simulator, with a second simulator signed in to it.
 - [ ] Check with the AWS CLI that the Cognito user is gone and the S3 prefix is empty, and in Neon's SQL editor that no rows remain.
 
 Docs
 
-- [ ] The privacy policy's deletion section describes the in-app deletion and the 90-day `deleted_accounts` record.
+- [x] The privacy policy's deletion section describes the in-app deletion and the 90-day `deleted_accounts` record.
 
 ## Out of scope
 
