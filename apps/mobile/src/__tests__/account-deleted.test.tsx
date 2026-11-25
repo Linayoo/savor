@@ -113,6 +113,25 @@ describe("ACCOUNT_DELETED from a sync", () => {
   });
 });
 
+describe("clearing a deleted account", () => {
+  it("signs out last, so a clearing that stops halfway runs again", async () => {
+    const { db, server, auth, deleteFiles, ui } = setup();
+    server.deleteAccount(ana.userId);
+    const order: string[] = [];
+    deleteFiles.mockImplementation(() =>
+      order.push(`files, ${listMoments(db).length} moment left`),
+    );
+    jest.mocked(auth.signOut).mockImplementation(async () => {
+      order.push(`tokens, ${listMoments(db).length} moments left`);
+    });
+
+    await render(ui(<Index />));
+    await screen.findByText(deletedLine);
+
+    expect(order).toEqual(["files, 1 moment left", "tokens, 0 moments left"]);
+  });
+});
+
 describe("a session that ended", () => {
   const ended: SyncApi = {
     ...new FakeSyncServer().api(ana.userId),

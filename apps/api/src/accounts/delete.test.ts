@@ -154,6 +154,18 @@ function failingTransaction(n: number): Db {
   });
 }
 
+// The database, with updates outside a transaction failing: only step 6's
+function failingUpdate(): Db {
+  return new Proxy(db, {
+    get(target, property, receiver) {
+      if (property !== "update") return Reflect.get(target, property, receiver);
+      return () => {
+        throw new Error("The database is unavailable");
+      };
+    },
+  });
+}
+
 function setup() {
   const storage = new FakePhotoStorage();
   const cognito = new FakeAccountDirectory();
@@ -227,6 +239,7 @@ describe("deleteAccount", () => {
       ["deleting the files", (s) => void (s.storage.failDeletes = true)],
       ["deleting the rows", () => failingTransaction(2)],
       ["deleting the Cognito user", (s) => s.cognito.failNext("deleteUser")],
+      ["noting that it finished", () => failingUpdate()],
     ];
 
     it.each(failures)(
